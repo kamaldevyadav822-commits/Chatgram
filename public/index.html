@@ -7,90 +7,73 @@
 
 <body class="bg-gradient-to-br from-black via-gray-900 to-black text-white">
 
-<!-- 🔐 LOGIN SCREEN -->
+<!-- LOGIN -->
 <div id="loginScreen" class="flex items-center justify-center h-screen">
+  <div class="w-[90%] max-w-sm p-6 rounded-2xl bg-white/10 backdrop-blur-lg border border-white/10">
 
-  <div class="w-[90%] max-w-sm p-6 rounded-2xl bg-white/10 backdrop-blur-lg border border-white/10 shadow-lg">
+    <h2 class="text-2xl text-center mb-6">Login</h2>
 
-    <h2 class="text-2xl text-center mb-6 font-semibold">Welcome</h2>
+    <input id="email" placeholder="Email"
+      class="w-full mb-4 px-4 py-3 rounded-xl bg-white/10 border border-white/10 outline-none">
 
-    <div class="space-y-4">
-      <input id="email" placeholder="Email"
-        class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 focus:ring-2 focus:ring-blue-500 outline-none">
-
-      <input id="password" type="password" placeholder="Password"
-        class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 focus:ring-2 focus:ring-blue-500 outline-none">
-    </div>
+    <input id="password" type="password" placeholder="Password"
+      class="w-full mb-4 px-4 py-3 rounded-xl bg-white/10 border border-white/10 outline-none">
 
     <button onclick="login()"
-      class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 font-semibold">
+      class="w-full py-3 rounded-xl bg-blue-500 font-semibold">
       Login
     </button>
 
   </div>
 </div>
 
-
-<!-- 💬 CHAT LIST -->
+<!-- CHAT LIST -->
 <div id="chatList" class="hidden h-screen flex flex-col">
 
-  <!-- HEADER -->
   <div class="flex justify-between items-center p-4 border-b border-white/10">
+    <h2 class="text-lg">Chats</h2>
 
-    <h2 class="text-lg font-semibold">Chats</h2>
-
-    <!-- PROFILE -->
     <div class="relative">
       <div id="avatar"
-        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer font-bold">
+        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer">
         U
       </div>
 
-      <!-- DROPDOWN -->
       <div id="menu"
-        class="hidden absolute right-0 mt-2 w-44 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-2 space-y-2">
+        class="hidden absolute right-0 mt-2 w-44 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-2">
 
-        <label class="text-sm cursor-pointer hover:bg-white/10 p-2 rounded block">
+        <label class="block p-2 cursor-pointer hover:bg-white/10 rounded">
           Upload Photo
           <input type="file" id="avatarInput" class="hidden">
         </label>
 
         <button onclick="logout()"
-          class="w-full text-left text-red-400 p-2 hover:bg-white/10 rounded">
+          class="w-full text-left p-2 text-red-400 hover:bg-white/10 rounded">
           Logout
         </button>
       </div>
     </div>
-
   </div>
 
-  <!-- USERS -->
   <div id="usersList" class="flex-1 overflow-y-auto"></div>
-
 </div>
 
-
-<!-- 🧠 CHAT SCREEN -->
+<!-- CHAT -->
 <div id="chatScreen" class="hidden h-screen flex flex-col">
 
-  <!-- HEADER -->
   <div id="chatHeader" class="p-4 border-b border-white/10"></div>
 
-  <!-- MESSAGES -->
   <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
 
-  <!-- INPUT (IMPROVED POSITION) -->
   <div class="px-3 pb-4">
-    <div class="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-3 py-2">
-
+    <div class="flex items-center gap-2 bg-white/10 rounded-full px-3 py-2">
       <input id="msg" placeholder="Message..."
-        class="flex-1 bg-transparent outline-none text-white">
+        class="flex-1 bg-transparent outline-none">
 
       <button onclick="sendMessage()"
         class="bg-blue-500 px-3 py-2 rounded-full active:scale-90">
         ➤
       </button>
-
     </div>
   </div>
 

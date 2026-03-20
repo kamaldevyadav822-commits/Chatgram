@@ -7,7 +7,9 @@ import {
   query,
   orderBy,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc,
+  doc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
@@ -36,7 +38,6 @@ let password = prompt("Enter your password:");
 
 try {
   await signInWithEmailAndPassword(auth, email, password);
-  console.log("Logged in as:", email);
 } catch (error) {
   alert("Login Failed: " + error.message);
   throw new Error("Auth Error");
@@ -56,68 +57,78 @@ if (!allowedUsers.includes(email)) {
 const chat = document.getElementById("chat");
 const input = document.getElementById("msg");
 
-// 👤 Username mapping (clean UI)
-const usernames = {
-  "seltos1@gmail.com": "You",
-  "seltos@gmail.com": "Partner"
-};
-
 // 📤 SEND MESSAGE
 window.sendMessage = async function () {
   const text = input.value.trim();
   if (!text) return;
 
-  try {
-    await addDoc(collection(db, "messages"), {
-      text: text,
-      sender: email,
-      timestamp: serverTimestamp()
-    });
+  await addDoc(collection(db, "messages"), {
+    text: text,
+    sender: email,
+    timestamp: serverTimestamp(),
+    seen: false
+  });
 
-    input.value = "";
-  } catch (error) {
-    console.error("Send error:", error);
-  }
+  input.value = "";
 };
 
-// ⌨️ ENTER KEY SUPPORT
+// ⌨️ ENTER KEY
 input.addEventListener("keypress", function (e) {
-  if (e.key === "Enter") {
-    sendMessage();
-  }
+  if (e.key === "Enter") sendMessage();
 });
 
-// 🎯 DISPLAY MESSAGE (UI)
-function displayMessage(msg) {
+// 🎯 DISPLAY MESSAGE
+function displayMessage(msg, id) {
   if (!msg.timestamp) return;
 
   const isMe = msg.sender === email;
 
   const wrapper = document.createElement("div");
-  wrapper.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
+  wrapper.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
 
   wrapper.innerHTML = `
     <div class="
-      max-w-[75%] px-4 py-2 rounded-2xl text-sm
+      max-w-[75%] px-4 py-2 rounded-2xl text-sm break-words shadow-md
       ${isMe
-        ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-br-none"
-        : "bg-white/10 backdrop-blur-md text-white rounded-bl-none"}
+        ? "bg-blue-500 text-white rounded-br-none"
+        : "bg-white/20 backdrop-blur-md text-white rounded-bl-none border border-white/20"}
     ">
       ${msg.text}
     </div>
+    ${
+      isMe
+        ? `<span class="text-[10px] mt-1 text-gray-400">
+            ${msg.seen ? " Seen" : "✓ Sent"}
+          </span>`
+        : ""
+    }
   `;
 
   chat.appendChild(wrapper);
   chat.scrollTop = chat.scrollHeight;
 }
 
-// 📥 REAL-TIME LISTENER (NO FLICKER)
+// 📥 REAL-TIME LISTENER
 const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
 
 onSnapshot(q, (snapshot) => {
-  snapshot.docChanges().forEach((change) => {
+  snapshot.docChanges().forEach(async (change) => {
     if (change.type === "added") {
-      displayMessage(change.doc.data());
+      const msg = change.doc.data();
+      const id = change.doc.id;
+
+      displayMessage(msg, id);
+
+      // 👁 Mark as seen (only if not sender)
+      if (msg.sender !== email && !msg.seen) {
+        try {
+          await updateDoc(doc(db, "messages", id), {
+            seen: true
+          });
+        } catch (err) {
+          console.error("Seen update error:", err);
+        }
+      }
     }
   });
 });

@@ -42,7 +42,7 @@ try {
 }
 
 // 🚫 ALLOW ONLY 2 USERS
-const allowedUsers = ["seltos@gmail.com", "seltos1gmail.com"];
+const allowedUsers = ["seltos@gmail.com","seltos1gmail.com"];
 
 if (!allowedUsers.includes(email)) {
   alert("Access Denied");

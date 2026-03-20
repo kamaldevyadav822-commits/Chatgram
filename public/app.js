@@ -4,13 +4,12 @@ import {
   getFirestore,
   collection,
   addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  updateDoc,
+  getDocs,
   doc,
-  setDoc
+  setDoc,
+  onSnapshot,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
@@ -18,7 +17,7 @@ import {
   signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-// CONFIG
+// ✅ FIREBASE CONFIG (your existing project)
 const firebaseConfig = {
   apiKey: "AIzaSyCeM_ki1k6hRW4Y3ooog5yUt9wQp4EGvEs",
   authDomain: "chatgram-aab01.firebaseapp.com",
@@ -29,158 +28,135 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// DOM
-const loginScreen = document.getElementById("loginScreen");
-const chatScreen = document.getElementById("chatScreen");
-const chat = document.getElementById("chat");
-const input = document.getElementById("msg");
-const typingDiv = document.getElementById("typing");
-const statusDiv = document.getElementById("status");
-const avatar = document.getElementById("avatar");
-const menu = document.getElementById("menu");
-const nicknameDisplay = document.getElementById("nicknameDisplay");
+let currentUser = "";
+let currentChat = "";
 
-let email = "";
+// 🔥 CLOUDINARY UPLOAD (FIXED WITH YOUR CLOUD NAME)
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", "chatgram_upload");
 
-// LOGIN
+  const res = await fetch("https://api.cloudinary.com/v1_1/dp6iehb5j/image/upload", {
+    method: "POST",
+    body: formData
+  });
+
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// 🔐 LOGIN
 window.login = async function () {
-  const e = document.getElementById("email").value;
-  const p = document.getElementById("password").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const nickname = document.getElementById("nickname").value;
+  const file = document.getElementById("avatarInput").files[0];
 
-  try {
-    await signInWithEmailAndPassword(auth, e, p);
+  await signInWithEmailAndPassword(auth, email, password);
 
-    email = e.trim().toLowerCase();
+  currentUser = email;
 
-    const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
-    if (!allowedUsers.includes(email)) throw "Unauthorized";
+  let avatarURL = "";
 
-    // Nickname setup
-    let nickname = localStorage.getItem("nickname");
-
-    if (!nickname) {
-      nickname = prompt("Enter your nickname:");
-      localStorage.setItem("nickname", nickname);
-    }
-
-    avatar.innerText = nickname.charAt(0).toUpperCase();
-    nicknameDisplay.innerText = nickname;
-
-    loginScreen.classList.add("hidden");
-    chatScreen.classList.remove("hidden");
-
-    startChat();
-
-  } catch (err) {
-    alert("Login failed");
+  if (file) {
+    avatarURL = await uploadToCloudinary(file);
   }
+
+  // ✅ Merge prevents overwriting old users
+  await setDoc(doc(db, "users", email), {
+    email,
+    nickname: nickname || email,
+    avatar: avatarURL || ""
+  }, { merge: true });
+
+  loadUsers();
+
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("chatList").classList.remove("hidden");
 };
 
-// DROPDOWN
-avatar.addEventListener("click", () => {
-  menu.classList.toggle("hidden");
-});
+// 👥 LOAD USERS
+async function loadUsers() {
+  const snap = await getDocs(collection(db, "users"));
+  const container = document.getElementById("usersList");
 
-// LOGOUT
-window.logout = function () {
-  localStorage.removeItem("nickname");
-  location.reload();
-};
+  container.innerHTML = "";
 
-// START CHAT
-function startChat() {
+  snap.forEach(docSnap => {
+    const user = docSnap.data();
 
-  const other = email === "seltos1@gmail.com"
-    ? "seltos@gmail.com"
-    : "seltos1@gmail.com";
+    if (user.email === currentUser) return;
 
-  // ONLINE
-  setDoc(doc(db, "presence", email), {
-    online: true,
-    typing: false
-  });
+    const div = document.createElement("div");
+    div.className = "flex items-center gap-2 p-2 border-b cursor-pointer";
 
-  // LISTEN OTHER STATUS
-  onSnapshot(doc(db, "presence", other), (snap) => {
-    const data = snap.data();
-    if (!data) return;
+    div.innerHTML = `
+      <img src="${user.avatar || 'https://via.placeholder.com/40'}"
+           class="w-8 h-8 rounded-full object-cover">
+      <span>${user.nickname}</span>
+    `;
 
-    statusDiv.innerText = data.online ? "Online" : "Offline";
-    typingDiv.style.display = data.typing ? "block" : "none";
-  });
+    div.onclick = () => openChat(user.email);
 
-  // SEND MESSAGE
-  window.sendMessage = async function () {
-    const text = input.value.trim();
-    if (!text) return;
-
-    const btn = document.getElementById("sendBtn");
-    btn.classList.add("scale-90");
-
-    await addDoc(collection(db, "messages"), {
-      text,
-      sender: email,
-      timestamp: serverTimestamp(),
-      seen: false
-    });
-
-    input.value = "";
-
-    setTimeout(() => btn.classList.remove("scale-90"), 100);
-  };
-
-  // TYPING
-  input.addEventListener("input", async () => {
-    await updateDoc(doc(db, "presence", email), {
-      typing: input.value.length > 0
-    });
-  });
-
-  // ENTER
-  input.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
-
-  // CHAT LISTENER
-  const q = query(collection(db, "messages"), orderBy("timestamp"));
-
-  onSnapshot(q, async (snapshot) => {
-    chat.innerHTML = "";
-
-    for (const d of snapshot.docs) {
-      const msg = d.data();
-      const id = d.id;
-
-      const isMe = msg.sender === email;
-
-      const div = document.createElement("div");
-      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
-
-      div.innerHTML = `
-        <div class="px-4 py-2 rounded-2xl text-sm max-w-[75%]
-          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
-          ${msg.text}
-        </div>
-        ${isMe ? `<span class="text-xs text-gray-400">
-          ${msg.seen ? "👁 Seen" : "✓ Sent"}
-        </span>` : ""}
-      `;
-
-      chat.appendChild(div);
-
-      if (msg.sender !== email && !msg.seen) {
-        await updateDoc(doc(db, "messages", id), { seen: true });
-      }
-    }
-
-    chat.scrollTop = chat.scrollHeight;
-  });
-
-  // OFFLINE
-  window.addEventListener("beforeunload", () => {
-    setDoc(doc(db, "presence", email), {
-      online: false,
-      typing: false
-    });
+    container.appendChild(div);
   });
 }
+
+// 💬 OPEN CHAT
+window.openChat = function (otherUser) {
+  currentChat = [currentUser, otherUser].sort().join("_");
+
+  document.getElementById("chatList").classList.add("hidden");
+  document.getElementById("chatScreen").classList.remove("hidden");
+
+  document.getElementById("chatHeader").innerText = otherUser;
+
+  loadMessages();
+};
+
+// 📥 LOAD MESSAGES
+function loadMessages() {
+  const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
+
+  onSnapshot(q, (snap) => {
+    const box = document.getElementById("messages");
+    box.innerHTML = "";
+
+    snap.forEach(docSnap => {
+      const m = docSnap.data();
+      const isMe = m.sender === currentUser;
+
+      const div = document.createElement("div");
+
+      div.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
+
+      div.innerHTML = `
+        <div class="px-3 py-2 rounded-xl max-w-[70%]
+          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
+          ${m.text}
+        </div>
+      `;
+
+      box.appendChild(div);
+    });
+
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+// 📤 SEND MESSAGE
+window.sendMessage = async function () {
+  const input = document.getElementById("msg");
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  await addDoc(collection(db, "messages"), {
+    text,
+    sender: currentUser,
+    chatId: currentChat
+  });
+
+  input.value = "";
+};

@@ -1,168 +1,186 @@
-// ==========================
-// USER SETUP (Nickname)
-// ==========================
-let nickname = localStorage.getItem("nickname");
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 
-if (!nickname) {
-  nickname = prompt("Enter your nickname:");
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  doc,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-  if (!nickname || nickname.trim() === "") {
-    nickname = "User" + Math.floor(Math.random() * 1000);
-  }
+import {
+  getAuth,
+  signInWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-  localStorage.setItem("nickname", nickname);
-}
+// CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyCeM_ki1k6hRW4Y3ooog5yUt9wQp4EGvEs",
+  authDomain: "chatgram-aab01.firebaseapp.com",
+  projectId: "chatgram-aab01",
+};
 
-// ==========================
-// UI ELEMENTS
-// ==========================
-const userIcon = document.getElementById("userIcon");
-const dropdown = document.getElementById("userDropdown");
-const userNameDisplay = document.getElementById("userNameDisplay");
-const logoutBtn = document.getElementById("logoutBtn");
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-const messageInput = document.getElementById("messageInput");
-const sendBtn = document.getElementById("sendBtn");
-const chatContainer = document.getElementById("chatContainer");
+// DOM
+const loginScreen = document.getElementById("loginScreen");
+const chatScreen = document.getElementById("chatScreen");
+const chat = document.getElementById("chat");
+const input = document.getElementById("msg");
+const typingDiv = document.getElementById("typing");
+const statusDiv = document.getElementById("status");
+const avatar = document.getElementById("avatar");
+const menu = document.getElementById("menu");
+const nicknameDisplay = document.getElementById("nicknameDisplay");
 
-// ==========================
-// SET USER UI
-// ==========================
-userNameDisplay.innerText = nickname;
-userIcon.innerText = nickname.charAt(0).toUpperCase();
+let email = "";
 
-// ==========================
-// DROPDOWN LOGIC
-// ==========================
-userIcon.addEventListener("click", () => {
-  dropdown.classList.toggle("hidden");
-});
+// LOGIN
+window.login = async function () {
+  const e = document.getElementById("email").value;
+  const p = document.getElementById("password").value;
 
-document.addEventListener("click", (e) => {
-  if (!document.getElementById("userSection").contains(e.target)) {
-    dropdown.classList.add("hidden");
-  }
-});
+  try {
+    await signInWithEmailAndPassword(auth, e, p);
 
-// ==========================
-// LOGOUT
-// ==========================
-logoutBtn.addEventListener("click", () => {
-  localStorage.removeItem("nickname");
-  alert("Logged out!");
-  location.reload();
-});
+    email = e.trim().toLowerCase();
 
-// ==========================
-// MESSAGE SYSTEM
-// ==========================
+    const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
+    if (!allowedUsers.includes(email)) throw "Unauthorized";
 
-// Temporary in-memory storage (replace with backend later)
-let messages = JSON.parse(localStorage.getItem("messages")) || [];
+    // Nickname setup
+    let nickname = localStorage.getItem("nickname");
 
-// Render messages
-function renderMessages() {
-  chatContainer.innerHTML = "";
-
-  messages.forEach((msg) => {
-    const msgDiv = document.createElement("div");
-
-    msgDiv.classList.add("message");
-
-    // DIFFERENTIATE SENDER
-    if (msg.sender === nickname) {
-      msgDiv.classList.add("sent");
-    } else {
-      msgDiv.classList.add("received");
+    if (!nickname) {
+      nickname = prompt("Enter your nickname:");
+      localStorage.setItem("nickname", nickname);
     }
 
-    msgDiv.innerHTML = `
-      <div class="msgText">${msg.text}</div>
-      <div class="msgMeta">
-        <span>${msg.sender}</span>
-        <span>${msg.seen ? "✓✓ Seen" : "✓ Sent"}</span>
-      </div>
-    `;
+    avatar.innerText = nickname.charAt(0).toUpperCase();
+    nicknameDisplay.innerText = nickname;
 
-    chatContainer.appendChild(msgDiv);
+    loginScreen.classList.add("hidden");
+    chatScreen.classList.remove("hidden");
+
+    startChat();
+
+  } catch (err) {
+    alert("Login failed");
+  }
+};
+
+// DROPDOWN
+avatar.addEventListener("click", () => {
+  menu.classList.toggle("hidden");
+});
+
+// LOGOUT
+window.logout = function () {
+  localStorage.removeItem("nickname");
+  location.reload();
+};
+
+// START CHAT
+function startChat() {
+
+  const other = email === "seltos1@gmail.com"
+    ? "seltos@gmail.com"
+    : "seltos1@gmail.com";
+
+  // ONLINE
+  setDoc(doc(db, "presence", email), {
+    online: true,
+    typing: false
   });
 
-  chatContainer.scrollTop = chatContainer.scrollHeight;
-}
+  // LISTEN OTHER STATUS
+  onSnapshot(doc(db, "presence", other), (snap) => {
+    const data = snap.data();
+    if (!data) return;
 
-// ==========================
-// SEND MESSAGE
-// ==========================
-sendBtn.addEventListener("click", sendMessage);
-messageInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage();
-});
+    statusDiv.innerText = data.online ? "Online" : "Offline";
+    typingDiv.style.display = data.typing ? "block" : "none";
+  });
 
-function sendMessage() {
-  const text = messageInput.value.trim();
+  // SEND MESSAGE
+  window.sendMessage = async function () {
+    const text = input.value.trim();
+    if (!text) return;
 
-  if (text === "") return;
+    const btn = document.getElementById("sendBtn");
+    btn.classList.add("scale-90");
 
-  const newMsg = {
-    sender: nickname,
-    text: text,
-    seen: false,
-    time: Date.now()
-  };
-
-  messages.push(newMsg);
-  localStorage.setItem("messages", JSON.stringify(messages));
-
-  messageInput.value = "";
-
-  renderMessages();
-
-  simulateReceive(); // simulate other user
-}
-
-// ==========================
-// SIMULATE OTHER USER (Demo)
-// ==========================
-function simulateReceive() {
-  setTimeout(() => {
-    const reply = {
-      sender: "OtherUser",
-      text: "Reply to: " + messages[messages.length - 1].text,
-      seen: true,
-      time: Date.now()
-    };
-
-    messages.push(reply);
-
-    // mark last sent message as seen
-    messages.forEach((msg) => {
-      if (msg.sender === nickname) {
-        msg.seen = true;
-      }
+    await addDoc(collection(db, "messages"), {
+      text,
+      sender: email,
+      timestamp: serverTimestamp(),
+      seen: false
     });
 
-    localStorage.setItem("messages", JSON.stringify(messages));
+    input.value = "";
 
-    renderMessages();
-  }, 1000);
+    setTimeout(() => btn.classList.remove("scale-90"), 100);
+  };
+
+  // TYPING
+  input.addEventListener("input", async () => {
+    await updateDoc(doc(db, "presence", email), {
+      typing: input.value.length > 0
+    });
+  });
+
+  // ENTER
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  // CHAT LISTENER
+  const q = query(collection(db, "messages"), orderBy("timestamp"));
+
+  onSnapshot(q, async (snapshot) => {
+    chat.innerHTML = "";
+
+    for (const d of snapshot.docs) {
+      const msg = d.data();
+      const id = d.id;
+
+      const isMe = msg.sender === email;
+
+      const div = document.createElement("div");
+      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
+
+      div.innerHTML = `
+        <div class="px-4 py-2 rounded-2xl text-sm max-w-[75%]
+          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
+          ${msg.text}
+        </div>
+        ${isMe ? `<span class="text-xs text-gray-400">
+          ${msg.seen ? "👁 Seen" : "✓ Sent"}
+        </span>` : ""}
+      `;
+
+      chat.appendChild(div);
+
+      if (msg.sender !== email && !msg.seen) {
+        await updateDoc(doc(db, "messages", id), { seen: true });
+      }
+    }
+
+    chat.scrollTop = chat.scrollHeight;
+  });
+
+  // OFFLINE
+  window.addEventListener("beforeunload", () => {
+    setDoc(doc(db, "presence", email), {
+      online: false,
+      typing: false
+    });
+  });
 }
-
-// ==========================
-// TYPING INDICATOR (BASIC)
-// ==========================
-let typingTimeout;
-
-messageInput.addEventListener("input", () => {
-  console.log("typing...");
-
-  clearTimeout(typingTimeout);
-
-  typingTimeout = setTimeout(() => {
-    console.log("stopped typing");
-  }, 1000);
-});
-
-// ==========================
-// INITIAL LOAD
-// ==========================
-renderMessages();

@@ -37,37 +37,45 @@ async function uploadToCloudinary(file) {
   return data.secure_url;
 }
 
-// LOGIN FLOW
+// LOGIN (FIXED)
 window.login = async function () {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
 
   if (!email || !password) {
-    alert("Fill all fields");
+    alert("Please fill all fields");
     return;
   }
 
-  await signInWithEmailAndPassword(auth, email, password);
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-  currentUser = email;
+    console.log("Login success:", userCredential.user.email);
 
-  let nickname = prompt("Enter your nickname:");
-  if (!nickname) nickname = email;
+    currentUser = email;
 
-  await setDoc(doc(db, "users", email), {
-    email,
-    nickname
-  }, { merge: true });
+    let nickname = prompt("Enter your nickname:");
+    if (!nickname) nickname = email;
 
-  setupProfile();
+    await setDoc(doc(db, "users", email), {
+      email,
+      nickname
+    }, { merge: true });
 
-  document.getElementById("loginScreen").classList.add("hidden");
-  document.getElementById("chatList").classList.remove("hidden");
+    setupProfile();
 
-  loadUsers();
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("chatList").classList.remove("hidden");
+
+    loadUsers();
+
+  } catch (error) {
+    console.error(error);
+    alert("Login Failed: " + error.message);
+  }
 };
 
-// PROFILE
+// PROFILE MENU
 function setupProfile() {
   const avatar = document.getElementById("avatar");
   const menu = document.getElementById("menu");
@@ -96,7 +104,7 @@ window.logout = function () {
   location.reload();
 };
 
-// USERS LIST
+// LOAD USERS
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -113,9 +121,9 @@ async function loadUsers() {
 
     div.innerHTML = `
       <img src="${user.avatar || 'https://via.placeholder.com/40'}"
-           class="w-10 h-10 rounded-full object-cover">
+           class="w-10 h-10 rounded-full">
       <span>${user.nickname}</span>
-   `;
+    `;
 
     div.onclick = () => openChat(user.email);
 

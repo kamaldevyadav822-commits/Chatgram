@@ -25,26 +25,27 @@ const firebaseConfig = {
   appId: "1:717348134788:web:7d24d2e440b198b97707d1"
 };
 
-// 🚀 Initialize
+// 🚀 Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 🔐 LOGIN SYSTEM
+// 🔐 LOGIN
 let email = prompt("Enter your email:");
 let password = prompt("Enter your password:");
 
 try {
   await signInWithEmailAndPassword(auth, email, password);
+  console.log("Logged in as:", email); // debug
 } catch (error) {
   alert("Login Failed: " + error.message);
   throw new Error("Auth Error");
 }
 
-// 🚫 ALLOW ONLY 2 USERS
-const allowedUsers = ["seltos@gmail.com","seltos1gmail.com"];
+// 🚫 ALLOW ONLY YOUR 2 USERS
+const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
 
-if (!allowedUsers.includes(email)) {
+if (!allowedUsers.includes(email.trim().toLowerCase())) {
   alert("Access Denied");
   throw new Error("Unauthorized user");
 }
@@ -68,7 +69,7 @@ window.sendMessage = async function () {
   }
 };
 
-// 📥 RECEIVE MESSAGES (REAL-TIME)
+// 📥 RECEIVE MESSAGES
 const chat = document.getElementById("chat");
 
 const q = query(collection(db, "messages"), orderBy("timestamp"));
@@ -81,7 +82,6 @@ onSnapshot(q, (snapshot) => {
 
     const div = document.createElement("div");
 
-    // Style differentiation
     if (msg.sender === email) {
       div.style.textAlign = "right";
       div.style.color = "#00ffcc";

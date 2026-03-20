@@ -10,7 +10,7 @@
 
 <body class="bg-black text-white h-screen flex flex-col">
 
-<!-- LOGIN SCREEN -->
+<!-- LOGIN -->
 <div id="loginScreen" class="flex flex-col justify-center items-center h-screen gap-4">
   <h1 class="text-2xl font-bold">Private Chat</h1>
 
@@ -26,15 +26,36 @@
   </button>
 </div>
 
-<!-- CHAT SCREEN -->
+<!-- CHAT -->
 <div id="chatScreen" class="hidden flex flex-col h-screen">
 
   <!-- HEADER -->
   <div class="p-3 border-b border-white/10 flex justify-between items-center">
+
     <div>
       <div class="font-semibold">Private Chat</div>
       <div id="status" class="text-xs text-gray-400">Offline</div>
     </div>
+
+    <!-- AVATAR -->
+    <div class="relative">
+      <div id="avatar"
+        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer font-semibold">
+        U
+      </div>
+
+      <div id="menu"
+        class="hidden absolute right-0 mt-2 w-40 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-2">
+
+        <div id="nicknameDisplay" class="text-sm px-2 py-1 text-gray-300"></div>
+
+        <button onclick="logout()"
+          class="w-full text-left px-2 py-1 text-red-400 hover:bg-white/10 rounded">
+          Logout
+        </button>
+      </div>
+    </div>
+
   </div>
 
   <!-- CHAT -->

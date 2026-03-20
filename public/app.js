@@ -1,162 +1,168 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+// ==========================
+// USER SETUP (Nickname)
+// ==========================
+let nickname = localStorage.getItem("nickname");
 
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  updateDoc,
-  doc,
-  setDoc
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+if (!nickname) {
+  nickname = prompt("Enter your nickname:");
 
-import {
-  getAuth,
-  signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-
-// 🔥 Config
-const firebaseConfig = {
-  apiKey: "AIzaSyCeM_ki1k6hRW4Y3ooog5yUt9wQp4EGvEs",
-  authDomain: "chatgram-aab01.firebaseapp.com",
-  projectId: "chatgram-aab01",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-// DOM
-const loginScreen = document.getElementById("loginScreen");
-const chatScreen = document.getElementById("chatScreen");
-const chat = document.getElementById("chat");
-const input = document.getElementById("msg");
-const typingDiv = document.getElementById("typing");
-const statusDiv = document.getElementById("status");
-
-let email = "";
-
-// 🔐 LOGIN
-window.login = async function () {
-  const e = document.getElementById("email").value;
-  const p = document.getElementById("password").value;
-
-  try {
-    await signInWithEmailAndPassword(auth, e, p);
-
-    email = e.toLowerCase();
-
-    const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
-    if (!allowedUsers.includes(email)) throw "Unauthorized";
-
-    loginScreen.classList.add("hidden");
-    chatScreen.classList.remove("hidden");
-
-    startChat();
-
-  } catch (err) {
-    alert("Login failed");
+  if (!nickname || nickname.trim() === "") {
+    nickname = "User" + Math.floor(Math.random() * 1000);
   }
-};
 
-// 🚀 START CHAT
-function startChat() {
-  const messagesRef = collection(db, "messages");
+  localStorage.setItem("nickname", nickname);
+}
 
-  // ONLINE STATUS
-  setDoc(doc(db, "presence", email), {
-    online: true,
-    typing: false
-  });
+// ==========================
+// UI ELEMENTS
+// ==========================
+const userIcon = document.getElementById("userIcon");
+const dropdown = document.getElementById("userDropdown");
+const userNameDisplay = document.getElementById("userNameDisplay");
+const logoutBtn = document.getElementById("logoutBtn");
 
-  // LISTEN OTHER USER STATUS
-  const other = email === "seltos1@gmail.com"
-    ? "seltos@gmail.com"
-    : "seltos1@gmail.com";
+const messageInput = document.getElementById("messageInput");
+const sendBtn = document.getElementById("sendBtn");
+const chatContainer = document.getElementById("chatContainer");
 
-  onSnapshot(doc(db, "presence", other), (snap) => {
-    const data = snap.data();
-    if (!data) return;
+// ==========================
+// SET USER UI
+// ==========================
+userNameDisplay.innerText = nickname;
+userIcon.innerText = nickname.charAt(0).toUpperCase();
 
-    statusDiv.innerText = data.online ? "Online" : "Offline";
-    typingDiv.style.display = data.typing ? "block" : "none";
-  });
+// ==========================
+// DROPDOWN LOGIC
+// ==========================
+userIcon.addEventListener("click", () => {
+  dropdown.classList.toggle("hidden");
+});
 
-  // SEND MESSAGE
-  window.sendMessage = async function () {
-    const text = input.value.trim();
-    if (!text) return;
+document.addEventListener("click", (e) => {
+  if (!document.getElementById("userSection").contains(e.target)) {
+    dropdown.classList.add("hidden");
+  }
+});
 
-    const btn = document.getElementById("sendBtn");
-    btn.classList.add("scale-90");
+// ==========================
+// LOGOUT
+// ==========================
+logoutBtn.addEventListener("click", () => {
+  localStorage.removeItem("nickname");
+  alert("Logged out!");
+  location.reload();
+});
 
-    await addDoc(messagesRef, {
-      text,
-      sender: email,
-      timestamp: serverTimestamp(),
-      seen: false
-    });
+// ==========================
+// MESSAGE SYSTEM
+// ==========================
 
-    input.value = "";
+// Temporary in-memory storage (replace with backend later)
+let messages = JSON.parse(localStorage.getItem("messages")) || [];
 
-    setTimeout(() => btn.classList.remove("scale-90"), 100);
-  };
+// Render messages
+function renderMessages() {
+  chatContainer.innerHTML = "";
 
-  // TYPING STATUS
-  input.addEventListener("input", async () => {
-    await updateDoc(doc(db, "presence", email), {
-      typing: input.value.length > 0
-    });
-  });
+  messages.forEach((msg) => {
+    const msgDiv = document.createElement("div");
 
-  // ENTER KEY
-  input.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
+    msgDiv.classList.add("message");
 
-  // REALTIME CHAT
-  const q = query(messagesRef, orderBy("timestamp"));
-
-  onSnapshot(q, async (snapshot) => {
-    chat.innerHTML = "";
-
-    for (const d of snapshot.docs) {
-      const msg = d.data();
-      const id = d.id;
-
-      const isMe = msg.sender === email;
-
-      const div = document.createElement("div");
-      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
-
-      div.innerHTML = `
-        <div class="px-4 py-2 rounded-2xl text-sm max-w-[75%]
-          ${isMe ? "bg-blue-500" : "bg-white/20"}">
-          ${msg.text}
-        </div>
-        ${isMe ? `<span class="text-xs text-gray-400">
-          ${msg.seen ? "Seen" : "Sent"}
-        </span>` : ""}
-      `;
-
-      chat.appendChild(div);
-
-      if (msg.sender !== email && !msg.seen) {
-        await updateDoc(doc(db, "messages", id), { seen: true });
-      }
+    // DIFFERENTIATE SENDER
+    if (msg.sender === nickname) {
+      msgDiv.classList.add("sent");
+    } else {
+      msgDiv.classList.add("received");
     }
 
-    chat.scrollTop = chat.scrollHeight;
+    msgDiv.innerHTML = `
+      <div class="msgText">${msg.text}</div>
+      <div class="msgMeta">
+        <span>${msg.sender}</span>
+        <span>${msg.seen ? "✓✓ Seen" : "✓ Sent"}</span>
+      </div>
+    `;
+
+    chatContainer.appendChild(msgDiv);
   });
 
-  // OFFLINE WHEN LEAVE
-  window.addEventListener("beforeunload", () => {
-    setDoc(doc(db, "presence", email), {
-      online: false,
-      typing: false
-    });
-  });
+  chatContainer.scrollTop = chatContainer.scrollHeight;
 }
+
+// ==========================
+// SEND MESSAGE
+// ==========================
+sendBtn.addEventListener("click", sendMessage);
+messageInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+
+function sendMessage() {
+  const text = messageInput.value.trim();
+
+  if (text === "") return;
+
+  const newMsg = {
+    sender: nickname,
+    text: text,
+    seen: false,
+    time: Date.now()
+  };
+
+  messages.push(newMsg);
+  localStorage.setItem("messages", JSON.stringify(messages));
+
+  messageInput.value = "";
+
+  renderMessages();
+
+  simulateReceive(); // simulate other user
+}
+
+// ==========================
+// SIMULATE OTHER USER (Demo)
+// ==========================
+function simulateReceive() {
+  setTimeout(() => {
+    const reply = {
+      sender: "OtherUser",
+      text: "Reply to: " + messages[messages.length - 1].text,
+      seen: true,
+      time: Date.now()
+    };
+
+    messages.push(reply);
+
+    // mark last sent message as seen
+    messages.forEach((msg) => {
+      if (msg.sender === nickname) {
+        msg.seen = true;
+      }
+    });
+
+    localStorage.setItem("messages", JSON.stringify(messages));
+
+    renderMessages();
+  }, 1000);
+}
+
+// ==========================
+// TYPING INDICATOR (BASIC)
+// ==========================
+let typingTimeout;
+
+messageInput.addEventListener("input", () => {
+  console.log("typing...");
+
+  clearTimeout(typingTimeout);
+
+  typingTimeout = setTimeout(() => {
+    console.log("stopped typing");
+  }, 1000);
+});
+
+// ==========================
+// INITIAL LOAD
+// ==========================
+renderMessages();

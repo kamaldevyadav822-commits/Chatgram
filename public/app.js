@@ -9,7 +9,8 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
-  doc
+  doc,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
@@ -17,127 +18,145 @@ import {
   signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-// 🔥 Firebase Config
+// 🔥 Config
 const firebaseConfig = {
   apiKey: "AIzaSyCeM_ki1k6hRW4Y3ooog5yUt9wQp4EGvEs",
   authDomain: "chatgram-aab01.firebaseapp.com",
   projectId: "chatgram-aab01",
-  storageBucket: "chatgram-aab01.firebasestorage.app",
-  messagingSenderId: "717348134788",
-  appId: "1:717348134788:web:7d24d2e440b198b97707d1"
 };
 
-// 🚀 Init
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 🔐 LOGIN
-let email = prompt("Enter your email:");
-let password = prompt("Enter your password:");
-
-try {
-  await signInWithEmailAndPassword(auth, email, password);
-} catch (error) {
-  alert("Login Failed: " + error.message);
-  throw new Error("Auth Error");
-}
-
-// 🚫 Restrict users
-email = email.trim().toLowerCase();
-const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
-
-if (!allowedUsers.includes(email)) {
-  alert("Access Denied");
-  throw new Error("Unauthorized");
-}
-
-// 📦 DOM
+// DOM
+const loginScreen = document.getElementById("loginScreen");
+const chatScreen = document.getElementById("chatScreen");
 const chat = document.getElementById("chat");
 const input = document.getElementById("msg");
+const typingDiv = document.getElementById("typing");
+const statusDiv = document.getElementById("status");
 
-// 📤 SEND MESSAGE
-window.sendMessage = async function () {
-  const text = input.value.trim();
-  if (!text) return;
+let email = "";
+
+// 🔐 LOGIN
+window.login = async function () {
+  const e = document.getElementById("email").value;
+  const p = document.getElementById("password").value;
 
   try {
-    await addDoc(collection(db, "messages"), {
-      text: text,
+    await signInWithEmailAndPassword(auth, e, p);
+
+    email = e.toLowerCase();
+
+    const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
+    if (!allowedUsers.includes(email)) throw "Unauthorized";
+
+    loginScreen.classList.add("hidden");
+    chatScreen.classList.remove("hidden");
+
+    startChat();
+
+  } catch (err) {
+    alert("Login failed");
+  }
+};
+
+// 🚀 START CHAT
+function startChat() {
+  const messagesRef = collection(db, "messages");
+
+  // ONLINE STATUS
+  setDoc(doc(db, "presence", email), {
+    online: true,
+    typing: false
+  });
+
+  // LISTEN OTHER USER STATUS
+  const other = email === "seltos1@gmail.com"
+    ? "seltos@gmail.com"
+    : "seltos1@gmail.com";
+
+  onSnapshot(doc(db, "presence", other), (snap) => {
+    const data = snap.data();
+    if (!data) return;
+
+    statusDiv.innerText = data.online ? "Online" : "Offline";
+    typingDiv.style.display = data.typing ? "block" : "none";
+  });
+
+  // SEND MESSAGE
+  window.sendMessage = async function () {
+    const text = input.value.trim();
+    if (!text) return;
+
+    const btn = document.getElementById("sendBtn");
+    btn.classList.add("scale-90");
+
+    await addDoc(messagesRef, {
+      text,
       sender: email,
       timestamp: serverTimestamp(),
       seen: false
     });
 
     input.value = "";
-  } catch (err) {
-    console.error("Send error:", err);
-  }
-};
 
-// ⌨️ ENTER KEY SUPPORT
-input.addEventListener("keypress", function (e) {
-  if (e.key === "Enter") sendMessage();
-});
+    setTimeout(() => btn.classList.remove("scale-90"), 100);
+  };
 
-// 🎯 DISPLAY MESSAGE
-function displayMessage(msg) {
-  if (!msg.timestamp) return;
+  // TYPING STATUS
+  input.addEventListener("input", async () => {
+    await updateDoc(doc(db, "presence", email), {
+      typing: input.value.length > 0
+    });
+  });
 
-  const isMe = msg.sender === email;
+  // ENTER KEY
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
 
-  const wrapper = document.createElement("div");
-  wrapper.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
+  // REALTIME CHAT
+  const q = query(messagesRef, orderBy("timestamp"));
 
-  wrapper.innerHTML = `
-    <div class="
-      max-w-[75%] px-4 py-2 rounded-2xl text-sm break-words shadow-md
-      ${isMe
-        ? "bg-blue-500 text-white rounded-br-none"
-        : "bg-white/20 backdrop-blur-md text-white rounded-bl-none border border-white/20"}
-    ">
-      ${msg.text}
-    </div>
-    ${
-      isMe
-        ? `<span class="text-[10px] mt-1 text-gray-400">
-            ${msg.seen ? "👁 Seen" : "✓ Sent"}
-          </span>`
-        : ""
-    }
-  `;
+  onSnapshot(q, async (snapshot) => {
+    chat.innerHTML = "";
 
-  chat.appendChild(wrapper);
-}
+    for (const d of snapshot.docs) {
+      const msg = d.data();
+      const id = d.id;
 
-// 📥 REAL-TIME SYNC (FULL RENDER - FIXED BUG)
-const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
+      const isMe = msg.sender === email;
 
-onSnapshot(q, async (snapshot) => {
-  chat.innerHTML = ""; // reset cleanly
+      const div = document.createElement("div");
+      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
 
-  for (const docSnap of snapshot.docs) {
-    const msg = docSnap.data();
-    const id = docSnap.id;
+      div.innerHTML = `
+        <div class="px-4 py-2 rounded-2xl text-sm max-w-[75%]
+          ${isMe ? "bg-blue-500" : "bg-white/20"}">
+          ${msg.text}
+        </div>
+        ${isMe ? `<span class="text-xs text-gray-400">
+          ${msg.seen ? "Seen" : "Sent"}
+        </span>` : ""}
+      `;
 
-    displayMessage(msg);
+      chat.appendChild(div);
 
-    // 👁 mark as seen
-    if (msg.sender !== email && !msg.seen) {
-      try {
-        await updateDoc(doc(db, "messages", id), {
-          seen: true
-        });
-      } catch (e) {
-        console.error("Seen update error:", e);
+      if (msg.sender !== email && !msg.seen) {
+        await updateDoc(doc(db, "messages", id), { seen: true });
       }
     }
-  }
 
-  chat.scrollTop = chat.scrollHeight;
-});
+    chat.scrollTop = chat.scrollHeight;
+  });
 
-// 🔥 AUTO FOCUS
-window.onload = () => {
-  input.focus();
-};
+  // OFFLINE WHEN LEAVE
+  window.addEventListener("beforeunload", () => {
+    setDoc(doc(db, "presence", email), {
+      online: false,
+      typing: false
+    });
+  });
+}

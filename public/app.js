@@ -1,23 +1,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  setDoc,
-  onSnapshot,
-  query,
-  where
+  getFirestore, collection, addDoc, getDocs,
+  doc, setDoc, onSnapshot, query, where, updateDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
-  getAuth,
-  signInWithEmailAndPassword
+  getAuth, signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-// ✅ FIREBASE CONFIG (your existing project)
 const firebaseConfig = {
   apiKey: "AIzaSyCeM_ki1k6hRW4Y3ooog5yUt9wQp4EGvEs",
   authDomain: "chatgram-aab01.firebaseapp.com",
@@ -31,7 +22,7 @@ const auth = getAuth(app);
 let currentUser = "";
 let currentChat = "";
 
-// 🔥 CLOUDINARY UPLOAD (FIXED WITH YOUR CLOUD NAME)
+// CLOUDINARY
 async function uploadToCloudinary(file) {
   const formData = new FormData();
   formData.append("file", file);
@@ -46,37 +37,66 @@ async function uploadToCloudinary(file) {
   return data.secure_url;
 }
 
-// 🔐 LOGIN
+// LOGIN FLOW
 window.login = async function () {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
-  const nickname = document.getElementById("nickname").value;
-  const file = document.getElementById("avatarInput").files[0];
+
+  if (!email || !password) {
+    alert("Fill all fields");
+    return;
+  }
 
   await signInWithEmailAndPassword(auth, email, password);
 
   currentUser = email;
 
-  let avatarURL = "";
+  let nickname = prompt("Enter your nickname:");
+  if (!nickname) nickname = email;
 
-  if (file) {
-    avatarURL = await uploadToCloudinary(file);
-  }
-
-  // ✅ Merge prevents overwriting old users
   await setDoc(doc(db, "users", email), {
     email,
-    nickname: nickname || email,
-    avatar: avatarURL || ""
+    nickname
   }, { merge: true });
 
-  loadUsers();
+  setupProfile();
 
-  document.getElementById("login").classList.add("hidden");
+  document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("chatList").classList.remove("hidden");
+
+  loadUsers();
 };
 
-// 👥 LOAD USERS
+// PROFILE
+function setupProfile() {
+  const avatar = document.getElementById("avatar");
+  const menu = document.getElementById("menu");
+  const fileInput = document.getElementById("avatarInput");
+
+  avatar.innerText = currentUser.charAt(0).toUpperCase();
+
+  avatar.onclick = () => menu.classList.toggle("hidden");
+
+  fileInput.onchange = async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const url = await uploadToCloudinary(file);
+
+    await updateDoc(doc(db, "users", currentUser), {
+      avatar: url
+    });
+
+    avatar.innerHTML = `<img src="${url}" class="w-full h-full rounded-full object-cover">`;
+  };
+}
+
+// LOGOUT
+window.logout = function () {
+  location.reload();
+};
+
+// USERS LIST
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -89,13 +109,13 @@ async function loadUsers() {
     if (user.email === currentUser) return;
 
     const div = document.createElement("div");
-    div.className = "flex items-center gap-2 p-2 border-b cursor-pointer";
+    div.className = "flex items-center gap-3 p-3 border-b border-white/10 cursor-pointer";
 
     div.innerHTML = `
       <img src="${user.avatar || 'https://via.placeholder.com/40'}"
-           class="w-8 h-8 rounded-full object-cover">
+           class="w-10 h-10 rounded-full object-cover">
       <span>${user.nickname}</span>
-    `;
+   `;
 
     div.onclick = () => openChat(user.email);
 
@@ -103,7 +123,7 @@ async function loadUsers() {
   });
 }
 
-// 💬 OPEN CHAT
+// OPEN CHAT
 window.openChat = function (otherUser) {
   currentChat = [currentUser, otherUser].sort().join("_");
 
@@ -115,7 +135,7 @@ window.openChat = function (otherUser) {
   loadMessages();
 };
 
-// 📥 LOAD MESSAGES
+// MESSAGES
 function loadMessages() {
   const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
 
@@ -133,7 +153,7 @@ function loadMessages() {
 
       div.innerHTML = `
         <div class="px-3 py-2 rounded-xl max-w-[70%]
-          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
+          ${isMe ? "bg-blue-500" : "bg-white/20"}">
           ${m.text}
         </div>
       `;
@@ -145,7 +165,7 @@ function loadMessages() {
   });
 }
 
-// 📤 SEND MESSAGE
+// SEND
 window.sendMessage = async function () {
   const input = document.getElementById("msg");
   const text = input.value.trim();

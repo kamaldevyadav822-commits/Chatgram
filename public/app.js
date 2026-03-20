@@ -44,9 +44,8 @@ try {
 }
 
 // 🚫 Restrict users
-const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
-
 email = email.trim().toLowerCase();
+const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
 
 if (!allowedUsers.includes(email)) {
   alert("Access Denied");
@@ -62,23 +61,27 @@ window.sendMessage = async function () {
   const text = input.value.trim();
   if (!text) return;
 
-  await addDoc(collection(db, "messages"), {
-    text: text,
-    sender: email,
-    timestamp: serverTimestamp(),
-    seen: false
-  });
+  try {
+    await addDoc(collection(db, "messages"), {
+      text: text,
+      sender: email,
+      timestamp: serverTimestamp(),
+      seen: false
+    });
 
-  input.value = "";
+    input.value = "";
+  } catch (err) {
+    console.error("Send error:", err);
+  }
 };
 
-// ⌨️ ENTER KEY
+// ⌨️ ENTER KEY SUPPORT
 input.addEventListener("keypress", function (e) {
   if (e.key === "Enter") sendMessage();
 });
 
 // 🎯 DISPLAY MESSAGE
-function displayMessage(msg, id) {
+function displayMessage(msg) {
   if (!msg.timestamp) return;
 
   const isMe = msg.sender === email;
@@ -98,39 +101,40 @@ function displayMessage(msg, id) {
     ${
       isMe
         ? `<span class="text-[10px] mt-1 text-gray-400">
-            ${msg.seen ? " Seen" : "✓ Sent"}
+            ${msg.seen ? "👁 Seen" : "✓ Sent"}
           </span>`
         : ""
     }
   `;
 
   chat.appendChild(wrapper);
-  chat.scrollTop = chat.scrollHeight;
 }
 
-// 📥 REAL-TIME LISTENER
+// 📥 REAL-TIME SYNC (FULL RENDER - FIXED BUG)
 const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
 
-onSnapshot(q, (snapshot) => {
-  snapshot.docChanges().forEach(async (change) => {
-    if (change.type === "added") {
-      const msg = change.doc.data();
-      const id = change.doc.id;
+onSnapshot(q, async (snapshot) => {
+  chat.innerHTML = ""; // reset cleanly
 
-      displayMessage(msg, id);
+  for (const docSnap of snapshot.docs) {
+    const msg = docSnap.data();
+    const id = docSnap.id;
 
-      // 👁 Mark as seen (only if not sender)
-      if (msg.sender !== email && !msg.seen) {
-        try {
-          await updateDoc(doc(db, "messages", id), {
-            seen: true
-          });
-        } catch (err) {
-          console.error("Seen update error:", err);
-        }
+    displayMessage(msg);
+
+    // 👁 mark as seen
+    if (msg.sender !== email && !msg.seen) {
+      try {
+        await updateDoc(doc(db, "messages", id), {
+          seen: true
+        });
+      } catch (e) {
+        console.error("Seen update error:", e);
       }
     }
-  });
+  }
+
+  chat.scrollTop = chat.scrollHeight;
 });
 
 // 🔥 AUTO FOCUS

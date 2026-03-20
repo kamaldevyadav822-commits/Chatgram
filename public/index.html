@@ -1,83 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chatgram</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-black text-white h-screen flex flex-col">
+<body class="bg-black text-white">
 
 <!-- LOGIN -->
-<div id="loginScreen" class="flex flex-col justify-center items-center h-screen gap-4">
-  <h1 class="text-2xl font-bold">Private Chat</h1>
+<div id="login" class="flex flex-col items-center justify-center h-screen gap-3">
+  <h2 class="text-xl">Login</h2>
 
-  <input id="email" placeholder="Email"
-    class="px-4 py-2 rounded bg-white/10 border border-white/20 outline-none">
+  <input id="email" placeholder="Email" class="p-2 bg-white/10 rounded">
+  <input id="password" type="password" placeholder="Password" class="p-2 bg-white/10 rounded">
+  <input id="nickname" placeholder="Nickname" class="p-2 bg-white/10 rounded">
+  <input type="file" id="avatarInput">
 
-  <input id="password" type="password" placeholder="Password"
-    class="px-4 py-2 rounded bg-white/10 border border-white/20 outline-none">
+  <button onclick="login()" class="bg-blue-500 px-4 py-2 rounded">Enter</button>
+</div>
 
-  <button onclick="login()"
-    class="bg-blue-500 px-6 py-2 rounded hover:scale-105 transition">
-    Login
-  </button>
+<!-- USER LIST -->
+<div id="chatList" class="hidden p-3">
+  <h2 class="text-lg mb-3">Chats</h2>
+  <div id="usersList"></div>
 </div>
 
 <!-- CHAT -->
 <div id="chatScreen" class="hidden flex flex-col h-screen">
+  <div id="chatHeader" class="p-3 border-b"></div>
 
-  <!-- HEADER -->
-  <div class="p-3 border-b border-white/10 flex justify-between items-center">
+  <div id="messages" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
 
-    <div>
-      <div class="font-semibold">Private Chat</div>
-      <div id="status" class="text-xs text-gray-400">Offline</div>
-    </div>
-
-    <!-- AVATAR -->
-    <div class="relative">
-      <div id="avatar"
-        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer font-semibold">
-        U
-      </div>
-
-      <div id="menu"
-        class="hidden absolute right-0 mt-2 w-40 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-2">
-
-        <div id="nicknameDisplay" class="text-sm px-2 py-1 text-gray-300"></div>
-
-        <button onclick="logout()"
-          class="w-full text-left px-2 py-1 text-red-400 hover:bg-white/10 rounded">
-          Logout
-        </button>
-      </div>
-    </div>
-
+  <div class="p-3 flex gap-2">
+    <input id="msg" class="flex-1 bg-white/10 p-2 rounded">
+    <button onclick="sendMessage()" class="bg-blue-500 px-3 rounded active:scale-90">➤</button>
   </div>
-
-  <!-- CHAT -->
-  <div id="chat" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
-
-  <!-- TYPING -->
-  <div id="typing" class="text-xs text-gray-400 px-3 hidden">
-    typing...
-  </div>
-
-  <!-- INPUT -->
-  <div class="p-3 border-t border-white/10 flex gap-2">
-    <input id="msg" placeholder="Message..."
-      class="flex-1 px-4 py-2 rounded-full bg-white/10 outline-none">
-
-    <button id="sendBtn"
-      onclick="sendMessage()"
-      class="bg-blue-500 px-4 py-2 rounded-full transition active:scale-90">
-      ➤
-    </button>
-  </div>
-
 </div>
 
 <script type="module" src="app.js"></script>

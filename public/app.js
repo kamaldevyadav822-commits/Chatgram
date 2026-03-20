@@ -15,7 +15,7 @@ import {
   signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-// 🔥 YOUR FIREBASE CONFIG
+// 🔥 Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyCeM_ki1k6hRW4Y3ooog5yUt9wQp4EGvEs",
   authDomain: "chatgram-aab01.firebaseapp.com",
@@ -25,7 +25,7 @@ const firebaseConfig = {
   appId: "1:717348134788:web:7d24d2e440b198b97707d1"
 };
 
-// 🚀 Initialize Firebase
+// 🚀 Init
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -36,29 +36,40 @@ let password = prompt("Enter your password:");
 
 try {
   await signInWithEmailAndPassword(auth, email, password);
-  console.log("Logged in as:", email); // debug
+  console.log("Logged in as:", email);
 } catch (error) {
   alert("Login Failed: " + error.message);
   throw new Error("Auth Error");
 }
 
-// 🚫 ALLOW ONLY YOUR 2 USERS
+// 🚫 Restrict users
 const allowedUsers = ["seltos1@gmail.com", "seltos@gmail.com"];
 
-if (!allowedUsers.includes(email.trim().toLowerCase())) {
+email = email.trim().toLowerCase();
+
+if (!allowedUsers.includes(email)) {
   alert("Access Denied");
-  throw new Error("Unauthorized user");
+  throw new Error("Unauthorized");
 }
+
+// 📦 DOM
+const chat = document.getElementById("chat");
+const input = document.getElementById("msg");
+
+// 👤 Username mapping (clean UI)
+const usernames = {
+  "seltos1@gmail.com": "You",
+  "seltos@gmail.com": "Partner"
+};
 
 // 📤 SEND MESSAGE
 window.sendMessage = async function () {
-  const input = document.getElementById("msg");
-
-  if (!input.value.trim()) return;
+  const text = input.value.trim();
+  if (!text) return;
 
   try {
     await addDoc(collection(db, "messages"), {
-      text: input.value,
+      text: text,
       sender: email,
       timestamp: serverTimestamp()
     });
@@ -69,31 +80,49 @@ window.sendMessage = async function () {
   }
 };
 
-// 📥 RECEIVE MESSAGES
-const chat = document.getElementById("chat");
+// ⌨️ ENTER KEY SUPPORT
+input.addEventListener("keypress", function (e) {
+  if (e.key === "Enter") {
+    sendMessage();
+  }
+});
 
-const q = query(collection(db, "messages"), orderBy("timestamp"));
+// 🎯 DISPLAY MESSAGE (UI)
+function displayMessage(msg) {
+  if (!msg.timestamp) return;
+
+  const isMe = msg.sender === email;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
+
+  wrapper.innerHTML = `
+    <div class="
+      max-w-[75%] px-4 py-2 rounded-2xl text-sm
+      ${isMe
+        ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-br-none"
+        : "bg-white/10 backdrop-blur-md text-white rounded-bl-none"}
+    ">
+      ${msg.text}
+    </div>
+  `;
+
+  chat.appendChild(wrapper);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// 📥 REAL-TIME LISTENER (NO FLICKER)
+const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
 
 onSnapshot(q, (snapshot) => {
-  chat.innerHTML = "";
-
-  snapshot.forEach(doc => {
-    const msg = doc.data();
-
-    const div = document.createElement("div");
-
-    if (msg.sender === email) {
-      div.style.textAlign = "right";
-      div.style.color = "#00ffcc";
-    } else {
-      div.style.textAlign = "left";
-      div.style.color = "#ffffff";
+  snapshot.docChanges().forEach((change) => {
+    if (change.type === "added") {
+      displayMessage(change.doc.data());
     }
-
-    div.innerText = msg.sender + ": " + msg.text;
-
-    chat.appendChild(div);
   });
-
-  chat.scrollTop = chat.scrollHeight;
 });
+
+// 🔥 AUTO FOCUS
+window.onload = () => {
+  input.focus();
+};

@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/fireba
 
 import {
   getFirestore, collection, addDoc, getDocs,
-  doc, setDoc, onSnapshot, query, where, updateDoc
+  doc, setDoc, onSnapshot, query, where, updateDoc, orderBy
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
@@ -72,7 +72,7 @@ window.login = async function () {
   try {
     await signInWithEmailAndPassword(auth, email, password);
 
-    let nickname = prompt("Enter your nickname:");
+    let nickname = prompt("Enter nickname:");
     if (!nickname) nickname = email;
 
     await setDoc(doc(db, "users", email), {
@@ -109,7 +109,7 @@ function setupProfile() {
   };
 }
 
-// LOGOUT (FIXED)
+// LOGOUT
 window.logout = async function () {
   await signOut(auth);
   location.reload();
@@ -160,9 +160,13 @@ window.goBack = function () {
   document.getElementById("chatList").classList.remove("hidden");
 };
 
-// MESSAGES
+// MESSAGES (FIXED ORDER)
 function loadMessages() {
-  const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
+  const q = query(
+    collection(db, "messages"),
+    where("chatId", "==", currentChat),
+    orderBy("createdAt", "asc")
+  );
 
   onSnapshot(q, (snap) => {
     const box = document.getElementById("messages");
@@ -190,7 +194,7 @@ function loadMessages() {
   });
 }
 
-// SEND
+// SEND (WITH TIMESTAMP)
 window.sendMessage = async function () {
   const input = document.getElementById("msg");
   const text = input.value.trim();
@@ -200,7 +204,8 @@ window.sendMessage = async function () {
   await addDoc(collection(db, "messages"), {
     text,
     sender: currentUser,
-    chatId: currentChat
+    chatId: currentChat,
+    createdAt: Date.now()
   });
 
   input.value = "";

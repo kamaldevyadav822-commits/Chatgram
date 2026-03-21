@@ -113,7 +113,7 @@ window.logout = async function () {
   location.reload();
 };
 
-// USERS + CACHE
+// USERS
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -122,7 +122,7 @@ async function loadUsers() {
 
   snap.forEach(docSnap => {
     const user = docSnap.data();
-    usersCache[user.email] = user; // 🔥 cache
+    usersCache[user.email] = user;
 
     if (user.email === currentUser) return;
 
@@ -141,7 +141,7 @@ async function loadUsers() {
   });
 }
 
-// OPEN CHAT (FIXED NAME)
+// OPEN CHAT
 window.openChat = function (otherUser) {
   currentChat = [currentUser, otherUser].sort().join("_");
 
@@ -161,47 +161,60 @@ window.goBack = function () {
   document.getElementById("chatList").classList.remove("hidden");
 };
 
-// 🔥 FIXED MESSAGE LOADING (NO DATA LOSS)
+// MESSAGES + SEEN SYSTEM
 function loadMessages() {
   const q = query(
     collection(db, "messages"),
     where("chatId", "==", currentChat)
   );
 
-  onSnapshot(q, (snap) => {
+  onSnapshot(q, async (snap) => {
     const box = document.getElementById("messages");
     box.innerHTML = "";
 
     let messages = [];
 
     snap.forEach(docSnap => {
-      messages.push(docSnap.data());
+      messages.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // 🔥 sort manually (works for old + new messages)
+    // sort properly
     messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
-    messages.forEach(m => {
+    for (const m of messages) {
       const isMe = m.sender === currentUser;
 
       const div = document.createElement("div");
-      div.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
+      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
 
       div.innerHTML = `
         <div class="px-3 py-2 rounded-xl max-w-[70%]
           ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
           ${m.text}
         </div>
+
+        ${isMe ? `
+          <span class="text-xs text-gray-400 mt-1">
+            ${m.seen ? "👁 Seen" : "✓ Sent"}
+          </span>
+        ` : ""}
       `;
 
       box.appendChild(div);
-    });
+
+      // 🔥 MARK AS SEEN
+      if (!isMe && !m.seen) {
+        await updateDoc(doc(db, "messages", m.id), {
+          seen: true
+        });
+      }
+    }
 
     box.scrollTop = box.scrollHeight;
   });
 }
 
-// SEND (SAFE)
+// SEND MESSAGE
 window.sendMessage = async function () {
   const input = document.getElementById("msg");
   const text = input.value.trim();
@@ -212,7 +225,8 @@ window.sendMessage = async function () {
     text,
     sender: currentUser,
     chatId: currentChat,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    seen: false // 🔥 NEW
   });
 
   input.value = "";

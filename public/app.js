@@ -10,7 +10,8 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -26,7 +27,7 @@ const auth = getAuth(app);
 let currentUser = "";
 let currentChat = "";
 
-// 🔥 KEEP USER LOGGED IN
+// KEEP LOGIN
 setPersistence(auth, browserLocalPersistence);
 
 // CLOUDINARY
@@ -44,7 +45,7 @@ async function uploadToCloudinary(file) {
   return data.secure_url;
 }
 
-// AUTO LOGIN (IMPORTANT)
+// AUTO LOGIN
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user.email;
@@ -71,8 +72,6 @@ window.login = async function () {
   try {
     await signInWithEmailAndPassword(auth, email, password);
 
-    currentUser = email;
-
     let nickname = prompt("Enter your nickname:");
     if (!nickname) nickname = email;
 
@@ -81,8 +80,8 @@ window.login = async function () {
       nickname
     }, { merge: true });
 
-  } catch (error) {
-    alert(error.message);
+  } catch (err) {
+    alert(err.message);
   }
 };
 
@@ -110,8 +109,9 @@ function setupProfile() {
   };
 }
 
-// LOGOUT
-window.logout = function () {
+// LOGOUT (FIXED)
+window.logout = async function () {
+  await signOut(auth);
   location.reload();
 };
 
@@ -132,7 +132,7 @@ async function loadUsers() {
 
     div.innerHTML = `
       <img src="${user.avatar || 'https://via.placeholder.com/40'}"
-           class="w-10 h-10 rounded-full">
+           class="w-10 h-10 rounded-full object-cover">
       <span>${user.nickname}</span>
     `;
 
@@ -154,7 +154,7 @@ window.openChat = function (otherUser) {
   loadMessages();
 };
 
-// BACK BUTTON
+// BACK
 window.goBack = function () {
   document.getElementById("chatScreen").classList.add("hidden");
   document.getElementById("chatList").classList.remove("hidden");
@@ -178,7 +178,7 @@ function loadMessages() {
 
       div.innerHTML = `
         <div class="px-3 py-2 rounded-xl max-w-[70%]
-          ${isMe ? "bg-blue-500" : "bg-white/20"}">
+          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
           ${m.text}
         </div>
       `;

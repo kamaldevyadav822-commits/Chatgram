@@ -6,7 +6,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
-  getAuth, signInWithEmailAndPassword
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -21,6 +25,9 @@ const auth = getAuth(app);
 
 let currentUser = "";
 let currentChat = "";
+
+// 🔥 KEEP USER LOGGED IN
+setPersistence(auth, browserLocalPersistence);
 
 // CLOUDINARY
 async function uploadToCloudinary(file) {
@@ -37,20 +44,32 @@ async function uploadToCloudinary(file) {
   return data.secure_url;
 }
 
-// LOGIN (FIXED)
+// AUTO LOGIN (IMPORTANT)
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user.email;
+
+    setupProfile();
+
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("chatList").classList.remove("hidden");
+
+    loadUsers();
+  }
+});
+
+// LOGIN
 window.login = async function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
   if (!email || !password) {
-    alert("Please fill all fields");
+    alert("Fill all fields");
     return;
   }
 
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-
-    console.log("Login success:", userCredential.user.email);
+    await signInWithEmailAndPassword(auth, email, password);
 
     currentUser = email;
 
@@ -62,20 +81,12 @@ window.login = async function () {
       nickname
     }, { merge: true });
 
-    setupProfile();
-
-    document.getElementById("loginScreen").classList.add("hidden");
-    document.getElementById("chatList").classList.remove("hidden");
-
-    loadUsers();
-
   } catch (error) {
-    console.error(error);
-    alert("Login Failed: " + error.message);
+    alert(error.message);
   }
 };
 
-// PROFILE MENU
+// PROFILE
 function setupProfile() {
   const avatar = document.getElementById("avatar");
   const menu = document.getElementById("menu");
@@ -104,7 +115,7 @@ window.logout = function () {
   location.reload();
 };
 
-// LOAD USERS
+// USERS
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -141,6 +152,12 @@ window.openChat = function (otherUser) {
   document.getElementById("chatHeader").innerText = otherUser;
 
   loadMessages();
+};
+
+// BACK BUTTON
+window.goBack = function () {
+  document.getElementById("chatScreen").classList.add("hidden");
+  document.getElementById("chatList").classList.remove("hidden");
 };
 
 // MESSAGES

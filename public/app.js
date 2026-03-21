@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/fireba
 
 import {
   getFirestore, collection, addDoc, getDocs,
-  doc, setDoc, onSnapshot, query, where, updateDoc, orderBy
+  doc, setDoc, onSnapshot, query, where, updateDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
@@ -26,6 +26,7 @@ const auth = getAuth(app);
 
 let currentUser = "";
 let currentChat = "";
+let usersCache = {};
 
 // KEEP LOGIN
 setPersistence(auth, browserLocalPersistence);
@@ -55,7 +56,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("loginScreen").classList.add("hidden");
     document.getElementById("chatList").classList.remove("hidden");
 
-    loadUsers();
+    await loadUsers();
   }
 });
 
@@ -64,10 +65,7 @@ window.login = async function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (!email || !password) {
-    alert("Fill all fields");
-    return;
-  }
+  if (!email || !password) return alert("Fill all fields");
 
   try {
     await signInWithEmailAndPassword(auth, email, password);
@@ -115,7 +113,7 @@ window.logout = async function () {
   location.reload();
 };
 
-// USERS
+// USERS + CACHE
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -124,6 +122,7 @@ async function loadUsers() {
 
   snap.forEach(docSnap => {
     const user = docSnap.data();
+    usersCache[user.email] = user; // 🔥 cache
 
     if (user.email === currentUser) return;
 
@@ -132,7 +131,7 @@ async function loadUsers() {
 
     div.innerHTML = `
       <img src="${user.avatar || 'https://via.placeholder.com/40'}"
-           class="w-10 h-10 rounded-full object-cover">
+           class="w-10 h-10 rounded-full">
       <span>${user.nickname}</span>
     `;
 
@@ -142,14 +141,16 @@ async function loadUsers() {
   });
 }
 
-// OPEN CHAT
+// OPEN CHAT (FIXED NAME)
 window.openChat = function (otherUser) {
   currentChat = [currentUser, otherUser].sort().join("_");
 
   document.getElementById("chatList").classList.add("hidden");
   document.getElementById("chatScreen").classList.remove("hidden");
 
-  document.getElementById("chatHeader").innerText = otherUser;
+  const user = usersCache[otherUser];
+  document.getElementById("chatHeader").innerText =
+    user?.nickname || otherUser;
 
   loadMessages();
 };
@@ -160,24 +161,30 @@ window.goBack = function () {
   document.getElementById("chatList").classList.remove("hidden");
 };
 
-// MESSAGES (FIXED ORDER)
+// 🔥 FIXED MESSAGE LOADING (NO DATA LOSS)
 function loadMessages() {
   const q = query(
     collection(db, "messages"),
-    where("chatId", "==", currentChat),
-    orderBy("createdAt", "asc")
+    where("chatId", "==", currentChat)
   );
 
   onSnapshot(q, (snap) => {
     const box = document.getElementById("messages");
     box.innerHTML = "";
 
+    let messages = [];
+
     snap.forEach(docSnap => {
-      const m = docSnap.data();
+      messages.push(docSnap.data());
+    });
+
+    // 🔥 sort manually (works for old + new messages)
+    messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+    messages.forEach(m => {
       const isMe = m.sender === currentUser;
 
       const div = document.createElement("div");
-
       div.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
 
       div.innerHTML = `
@@ -194,7 +201,7 @@ function loadMessages() {
   });
 }
 
-// SEND (WITH TIMESTAMP)
+// SEND (SAFE)
 window.sendMessage = async function () {
   const input = document.getElementById("msg");
   const text = input.value.trim();

@@ -6,12 +6,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  setPersistence,
-  browserLocalPersistence,
-  signOut
+  getAuth, signInWithEmailAndPassword,
+  onAuthStateChanged, setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -30,89 +27,43 @@ let usersCache = {};
 
 setPersistence(auth, browserLocalPersistence);
 
-// CLOUDINARY
-async function uploadToCloudinary(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", "chatgram_upload");
-
-  const res = await fetch("https://api.cloudinary.com/v1_1/dp6iehb5j/image/upload", {
-    method: "POST",
-    body: formData
+// 🔥 ONLINE STATUS
+function updateOnlineStatus() {
+  updateDoc(doc(db, "users", currentUser), {
+    lastActive: Date.now()
   });
-
-  const data = await res.json();
-  return data.secure_url;
 }
+
+setInterval(updateOnlineStatus, 5000);
+
+// LOGIN
+window.login = async function () {
+  const email = email.value;
+  const password = password.value;
+
+  await signInWithEmailAndPassword(auth, email, password);
+
+  currentUser = email;
+
+  await setDoc(doc(db, "users", email), {
+    email,
+    nickname: email
+  }, { merge: true });
+};
 
 // AUTO LOGIN
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user.email;
 
-    setupProfile();
-
     document.getElementById("loginScreen").classList.add("hidden");
     document.getElementById("chatList").classList.remove("hidden");
 
-    await loadUsers();
+    loadUsers();
   }
 });
 
-// LOGIN
-window.login = async function () {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-
-  if (!email || !password) return alert("Fill all fields");
-
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-
-    let nickname = prompt("Enter nickname:");
-    if (!nickname) nickname = email;
-
-    await setDoc(doc(db, "users", email), {
-      email,
-      nickname
-    }, { merge: true });
-
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-// PROFILE
-function setupProfile() {
-  const avatar = document.getElementById("avatar");
-  const menu = document.getElementById("menu");
-  const fileInput = document.getElementById("avatarInput");
-
-  avatar.innerText = currentUser.charAt(0).toUpperCase();
-
-  avatar.onclick = () => menu.classList.toggle("hidden");
-
-  fileInput.onchange = async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    const url = await uploadToCloudinary(file);
-
-    await updateDoc(doc(db, "users", currentUser), {
-      avatar: url
-    });
-
-    avatar.innerHTML = `<img src="${url}" class="w-full h-full rounded-full object-cover">`;
-  };
-}
-
-// LOGOUT
-window.logout = async function () {
-  await signOut(auth);
-  location.reload();
-};
-
-// USERS
+// USERS + LAST MESSAGE
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -126,17 +77,30 @@ async function loadUsers() {
     if (user.email === currentUser) return;
 
     const div = document.createElement("div");
-    div.className = "flex items-center gap-3 p-3 border-b border-white/10 cursor-pointer";
 
     div.innerHTML = `
-      <img src="${user.avatar || 'https://via.placeholder.com/40'}"
-           class="w-10 h-10 rounded-full">
-      <span>${user.nickname}</span>
+      <div onclick="openChat('${user.email}')" class="p-3 border-b">
+        <div>${user.nickname}</div>
+        <div id="last-${user.email}" class="text-xs text-gray-400">...</div>
+      </div>
     `;
 
-    div.onclick = () => openChat(user.email);
-
     container.appendChild(div);
+
+    // 🔥 LAST MESSAGE
+    const q = query(collection(db, "messages"), where("chatId", "==", [currentUser, user.email].sort().join("_")));
+
+    onSnapshot(q, (snap) => {
+      let msgs = [];
+      snap.forEach(d => msgs.push(d.data()));
+
+      msgs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      if (msgs[0]) {
+        document.getElementById(`last-${user.email}`).innerText =
+          msgs[0].text || "📷 Image";
+      }
+    });
   });
 }
 
@@ -147,25 +111,35 @@ window.openChat = function (otherUser) {
   document.getElementById("chatList").classList.add("hidden");
   document.getElementById("chatScreen").classList.remove("hidden");
 
-  const user = usersCache[otherUser];
-  document.getElementById("chatHeader").innerText =
-    user?.nickname || otherUser;
+  document.getElementById("chatHeader").innerText = usersCache[otherUser]?.nickname;
+
+  // 🔥 ONLINE STATUS
+  setInterval(() => {
+    const last = usersCache[otherUser]?.lastActive || 0;
+    const online = Date.now() - last < 10000;
+
+    document.getElementById("status").innerText = online ? "Online" : "Offline";
+  }, 3000);
 
   loadMessages();
 };
 
-// BACK
-window.goBack = function () {
-  document.getElementById("chatScreen").classList.add("hidden");
-  document.getElementById("chatList").classList.remove("hidden");
+// IMAGE PREVIEW
+const imageInput = document.getElementById("imageInput");
+const previewBox = document.getElementById("previewBox");
+const previewImg = document.getElementById("previewImg");
+
+imageInput.onchange = () => {
+  const file = imageInput.files[0];
+  if (!file) return;
+
+  previewImg.src = URL.createObjectURL(file);
+  previewBox.classList.remove("hidden");
 };
 
-// LOAD MESSAGES (TEXT + IMAGE)
+// LOAD MESSAGES
 function loadMessages() {
-  const q = query(
-    collection(db, "messages"),
-    where("chatId", "==", currentChat)
-  );
+  const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
 
   onSnapshot(q, (snap) => {
     const box = document.getElementById("messages");
@@ -173,9 +147,7 @@ function loadMessages() {
 
     let messages = [];
 
-    snap.forEach(docSnap => {
-      messages.push({ id: docSnap.id, ...docSnap.data() });
-    });
+    snap.forEach(d => messages.push(d.data()));
 
     messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
@@ -183,22 +155,12 @@ function loadMessages() {
       const isMe = m.sender === currentUser;
 
       const div = document.createElement("div");
-      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
+
+      div.className = isMe ? "text-right" : "text-left";
 
       div.innerHTML = `
-        <div class="px-3 py-2 rounded-xl max-w-[70%]
-          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
-
-          ${m.text ? `<div>${m.text}</div>` : ""}
-
-          ${m.image ? `<img src="${m.image}" class="mt-2 rounded-lg max-w-full">` : ""}
-        </div>
-
-        ${isMe ? `
-          <span class="text-xs text-gray-400 mt-1">
-            ${m.seen ? "👁 Seen" : "✓ Sent"}
-          </span>
-        ` : ""}
+        ${m.text || ""}
+        ${m.image ? `<img src="${m.image}" class="max-w-[150px] mt-1 rounded">` : ""}
       `;
 
       box.appendChild(div);
@@ -208,31 +170,42 @@ function loadMessages() {
   });
 }
 
-// SEND MESSAGE (TEXT + IMAGE)
+// SEND
 window.sendMessage = async function () {
-  const input = document.getElementById("msg");
-  const imageInput = document.getElementById("imageInput");
-
-  const text = input.value.trim();
+  const text = msg.value;
   const file = imageInput.files[0];
-
-  if (!text && !file) return;
 
   let imageURL = "";
 
   if (file) {
-    imageURL = await uploadToCloudinary(file);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("upload_preset", "chatgram_upload");
+
+    const res = await fetch("https://api.cloudinary.com/v1_1/dp6iehb5j/image/upload", {
+      method: "POST",
+      body: form
+    });
+
+    const data = await res.json();
+    imageURL = data.secure_url;
   }
 
   await addDoc(collection(db, "messages"), {
-    text: text || "",
-    image: imageURL || "",
+    text,
+    image: imageURL,
     sender: currentUser,
     chatId: currentChat,
-    createdAt: Date.now(),
-    seen: false
+    createdAt: Date.now()
   });
 
-  input.value = "";
+  msg.value = "";
   imageInput.value = "";
+  previewBox.classList.add("hidden");
+};
+
+// BACK
+window.goBack = function () {
+  document.getElementById("chatScreen").classList.add("hidden");
+  document.getElementById("chatList").classList.remove("hidden");
 };

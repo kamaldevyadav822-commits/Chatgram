@@ -28,70 +28,45 @@
 <!-- CHAT LIST -->
 <div id="chatList" class="hidden h-screen flex flex-col">
 
-  <!-- HEADER -->
   <div class="p-4 border-b border-white/10 flex justify-between items-center">
+    <h2>Chats</h2>
 
-    <h2 class="text-lg font-semibold">Chats</h2>
-
-    <!-- PROFILE -->
     <div class="relative">
-
       <div id="avatar"
-        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer font-bold">
+        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer">
         U
       </div>
 
       <div id="menu"
-        class="hidden absolute right-0 mt-2 w-40 bg-black/90 border border-white/10 rounded-lg p-2 z-50">
-
-        <label class="block p-2 cursor-pointer hover:bg-white/10 rounded">
-          Upload Photo
-          <input type="file" id="avatarInput" class="hidden">
-        </label>
+        class="hidden absolute right-0 mt-2 w-40 bg-black/90 border border-white/10 rounded-lg p-2">
 
         <button onclick="logout()"
-          class="w-full text-left p-2 text-red-400 hover:bg-white/10 rounded">
+          class="w-full text-left p-2 text-red-400">
           Logout
         </button>
 
       </div>
-
     </div>
-
   </div>
 
-  <!-- USERS -->
   <div id="usersList" class="flex-1 overflow-y-auto"></div>
-
 </div>
 
 <!-- CHAT -->
 <div id="chatScreen" class="hidden h-screen flex flex-col">
 
-  <!-- HEADER -->
   <div class="p-4 border-b flex items-center gap-2">
     <button onclick="goBack()">←</button>
     <div id="chatHeader"></div>
   </div>
 
-  <!-- MESSAGES -->
   <div id="messages" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
-
-  <!-- IMAGE PREVIEW -->
-  <div id="previewBox" class="hidden p-2">
-    <img id="previewImg" class="max-h-40 rounded">
-  </div>
 
   <!-- INPUT -->
   <div class="sticky bottom-0 p-3 bg-black/80">
     <div class="flex gap-2 bg-white/10 rounded-full px-3 py-2">
 
-      <input id="msg" class="flex-1 bg-transparent outline-none text-white" placeholder="Message">
-
-      <label class="cursor-pointer">
-        📷
-        <input type="file" id="imageInput" class="hidden">
-      </label>
+      <input id="msg" class="flex-1 bg-transparent outline-none text-white">
 
       <button onclick="sendMessage()" class="bg-blue-500 px-3 py-2 rounded-full">
         ➤

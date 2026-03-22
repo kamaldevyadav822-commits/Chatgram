@@ -10,9 +10,18 @@
 <!-- LOGIN -->
 <div id="loginScreen" class="flex items-center justify-center h-screen">
   <div class="w-[90%] max-w-sm p-6 bg-white/10 rounded-xl">
-    <input id="email" placeholder="Email" class="w-full mb-3 p-2 bg-white/10 rounded">
-    <input id="password" type="password" placeholder="Password" class="w-full mb-3 p-2 bg-white/10 rounded">
-    <button onclick="login()" class="w-full bg-blue-500 py-2 rounded">Login</button>
+
+    <input id="email" placeholder="Email"
+      class="w-full mb-3 p-3 bg-white/10 rounded outline-none">
+
+    <input id="password" type="password" placeholder="Password"
+      class="w-full mb-3 p-3 bg-white/10 rounded outline-none">
+
+    <button onclick="login()"
+      class="w-full bg-blue-500 py-2 rounded">
+      Login
+    </button>
+
   </div>
 </div>
 
@@ -21,8 +30,7 @@
 
   <div class="p-4 border-b border-white/10 flex justify-between">
     <h2>Chats</h2>
-
-    <div id="avatar" class="w-9 h-9 bg-blue-500 rounded-full flex items-center justify-center cursor-pointer">U</div>
+    <div id="avatar" class="w-9 h-9 bg-blue-500 rounded-full flex items-center justify-center">U</div>
   </div>
 
   <div id="usersList" class="flex-1 overflow-y-auto"></div>
@@ -48,14 +56,14 @@
   <div class="sticky bottom-0 p-3 bg-black/80">
     <div class="flex gap-2 bg-white/10 rounded-full px-3 py-2">
 
-      <input id="msg" class="flex-1 bg-transparent outline-none">
+      <input id="msg" class="flex-1 bg-transparent outline-none text-white" placeholder="Message">
 
       <label class="cursor-pointer">
         📷
         <input type="file" id="imageInput" class="hidden">
       </label>
 
-      <button onclick="sendMessage()">➤</button>
+      <button onclick="sendMessage()" class="bg-blue-500 px-3 py-2 rounded-full">➤</button>
 
     </div>
   </div>

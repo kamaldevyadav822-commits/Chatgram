@@ -32,19 +32,12 @@ window.login = async function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (!email || !password) return alert("Fill all fields");
+  await signInWithEmailAndPassword(auth, email, password);
 
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-
-    await setDoc(doc(db, "users", email), {
-      email,
-      nickname: email
-    }, { merge: true });
-
-  } catch (err) {
-    alert(err.message);
-  }
+  await setDoc(doc(db, "users", email), {
+    email,
+    nickname: email
+  }, { merge: true });
 };
 
 // AUTO LOGIN
@@ -60,7 +53,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// PROFILE FIXED
+// PROFILE
 function setupProfile() {
   const avatar = document.getElementById("avatar");
   const menu = document.getElementById("menu");
@@ -97,7 +90,6 @@ async function loadUsers() {
     if (user.email === currentUser) return;
 
     const div = document.createElement("div");
-
     div.className = "p-3 border-b cursor-pointer";
     div.innerText = user.nickname;
 
@@ -117,6 +109,7 @@ window.openChat = function (otherUser) {
   document.getElementById("chatHeader").innerText =
     usersCache[otherUser]?.nickname;
 
+  listenTyping(otherUser);
   loadMessages();
 };
 
@@ -126,20 +119,38 @@ window.goBack = function () {
   document.getElementById("chatList").classList.remove("hidden");
 };
 
-// IMAGE PREVIEW
-const imageInput = document.getElementById("imageInput");
-const previewBox = document.getElementById("previewBox");
-const previewImg = document.getElementById("previewImg");
+// 🔥 TYPING SYSTEM
+const msgInput = document.getElementById("msg");
 
-imageInput.onchange = () => {
-  const file = imageInput.files[0];
-  if (!file) return;
+msgInput.addEventListener("input", async () => {
+  if (!currentChat) return;
 
-  previewImg.src = URL.createObjectURL(file);
-  previewBox.classList.remove("hidden");
-};
+  await setDoc(doc(db, "typing", currentChat), {
+    [currentUser]: true
+  }, { merge: true });
 
-// LOAD MESSAGES + SEEN
+  setTimeout(async () => {
+    await setDoc(doc(db, "typing", currentChat), {
+      [currentUser]: false
+    }, { merge: true });
+  }, 1000);
+});
+
+function listenTyping(otherUser) {
+  onSnapshot(doc(db, "typing", currentChat), (docSnap) => {
+    const data = docSnap.data();
+
+    if (data && data[otherUser]) {
+      document.getElementById("chatHeader").innerText =
+        usersCache[otherUser]?.nickname + " (typing...)";
+    } else {
+      document.getElementById("chatHeader").innerText =
+        usersCache[otherUser]?.nickname;
+    }
+  });
+}
+
+// 🔥 LOAD MESSAGES WITH TIMESTAMP BELOW SEEN
 function loadMessages() {
   const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
 
@@ -158,6 +169,10 @@ function loadMessages() {
     for (const m of messages) {
       const isMe = m.sender === currentUser;
 
+      const time = m.createdAt
+        ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : "";
+
       const div = document.createElement("div");
       div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
 
@@ -166,19 +181,21 @@ function loadMessages() {
           ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
 
           ${m.text || ""}
-          ${m.image ? `<img src="${m.image}" class="mt-2 rounded max-w-full">` : ""}
         </div>
 
         ${isMe ? `
-          <span class="text-xs text-gray-400 mt-1">
+          <span class="text-[10px] text-gray-400 mt-1">
             ${m.seen ? "👁 Seen" : "✓ Sent"}
           </span>
         ` : ""}
+
+        <span class="text-[9px] text-gray-500">
+          ${time}
+        </span>
       `;
 
       box.appendChild(div);
 
-      // MARK AS SEEN
       if (!isMe && !m.seen) {
         await updateDoc(doc(db, "messages", m.id), {
           seen: true
@@ -193,29 +210,10 @@ function loadMessages() {
 // SEND
 window.sendMessage = async function () {
   const text = document.getElementById("msg").value.trim();
-  const file = imageInput.files[0];
-
-  if (!text && !file) return;
-
-  let imageURL = "";
-
-  if (file) {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("upload_preset", "chatgram_upload");
-
-    const res = await fetch("https://api.cloudinary.com/v1_1/dp6iehb5j/image/upload", {
-      method: "POST",
-      body: form
-    });
-
-    const data = await res.json();
-    imageURL = data.secure_url;
-  }
+  if (!text) return;
 
   await addDoc(collection(db, "messages"), {
     text,
-    image: imageURL,
     sender: currentUser,
     chatId: currentChat,
     createdAt: Date.now(),
@@ -223,6 +221,4 @@ window.sendMessage = async function () {
   });
 
   document.getElementById("msg").value = "";
-  imageInput.value = "";
-  previewBox.classList.add("hidden");
 };

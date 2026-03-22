@@ -8,7 +8,7 @@ import {
 import {
   getAuth, signInWithEmailAndPassword,
   onAuthStateChanged, setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence, signOut
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -27,28 +27,24 @@ let usersCache = {};
 
 setPersistence(auth, browserLocalPersistence);
 
-// 🔥 ONLINE STATUS
-function updateOnlineStatus() {
-  updateDoc(doc(db, "users", currentUser), {
-    lastActive: Date.now()
-  });
-}
-
-setInterval(updateOnlineStatus, 5000);
-
 // LOGIN
 window.login = async function () {
-  const email = email.value;
-  const password = password.value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-  await signInWithEmailAndPassword(auth, email, password);
+  if (!email || !password) return alert("Fill all fields");
 
-  currentUser = email;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
 
-  await setDoc(doc(db, "users", email), {
-    email,
-    nickname: email
-  }, { merge: true });
+    await setDoc(doc(db, "users", email), {
+      email,
+      nickname: email
+    }, { merge: true });
+
+  } catch (err) {
+    alert(err.message);
+  }
 };
 
 // AUTO LOGIN
@@ -60,10 +56,18 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("chatList").classList.remove("hidden");
 
     loadUsers();
+    setInterval(updateOnlineStatus, 5000);
   }
 });
 
-// USERS + LAST MESSAGE
+// ONLINE STATUS
+function updateOnlineStatus() {
+  updateDoc(doc(db, "users", currentUser), {
+    lastActive: Date.now()
+  });
+}
+
+// USERS
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
   const container = document.getElementById("usersList");
@@ -78,29 +82,13 @@ async function loadUsers() {
 
     const div = document.createElement("div");
 
-    div.innerHTML = `
-      <div onclick="openChat('${user.email}')" class="p-3 border-b">
-        <div>${user.nickname}</div>
-        <div id="last-${user.email}" class="text-xs text-gray-400">...</div>
-      </div>
-    `;
+    div.className = "p-3 border-b cursor-pointer";
+
+    div.innerHTML = `<div>${user.nickname}</div>`;
+
+    div.onclick = () => openChat(user.email);
 
     container.appendChild(div);
-
-    // 🔥 LAST MESSAGE
-    const q = query(collection(db, "messages"), where("chatId", "==", [currentUser, user.email].sort().join("_")));
-
-    onSnapshot(q, (snap) => {
-      let msgs = [];
-      snap.forEach(d => msgs.push(d.data()));
-
-      msgs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-      if (msgs[0]) {
-        document.getElementById(`last-${user.email}`).innerText =
-          msgs[0].text || "📷 Image";
-      }
-    });
   });
 }
 
@@ -113,15 +101,13 @@ window.openChat = function (otherUser) {
 
   document.getElementById("chatHeader").innerText = usersCache[otherUser]?.nickname;
 
-  // 🔥 ONLINE STATUS
-  setInterval(() => {
-    const last = usersCache[otherUser]?.lastActive || 0;
-    const online = Date.now() - last < 10000;
-
-    document.getElementById("status").innerText = online ? "Online" : "Offline";
-  }, 3000);
-
   loadMessages();
+};
+
+// BACK
+window.goBack = function () {
+  document.getElementById("chatScreen").classList.add("hidden");
+  document.getElementById("chatList").classList.remove("hidden");
 };
 
 // IMAGE PREVIEW
@@ -137,7 +123,7 @@ imageInput.onchange = () => {
   previewBox.classList.remove("hidden");
 };
 
-// LOAD MESSAGES
+// LOAD MESSAGES (FIXED UI)
 function loadMessages() {
   const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
 
@@ -156,11 +142,16 @@ function loadMessages() {
 
       const div = document.createElement("div");
 
-      div.className = isMe ? "text-right" : "text-left";
+      div.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
 
       div.innerHTML = `
-        ${m.text || ""}
-        ${m.image ? `<img src="${m.image}" class="max-w-[150px] mt-1 rounded">` : ""}
+        <div class="px-3 py-2 rounded-xl max-w-[70%]
+          ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
+
+          ${m.text || ""}
+          ${m.image ? `<img src="${m.image}" class="mt-2 rounded max-w-full">` : ""}
+
+        </div>
       `;
 
       box.appendChild(div);
@@ -172,8 +163,10 @@ function loadMessages() {
 
 // SEND
 window.sendMessage = async function () {
-  const text = msg.value;
+  const text = document.getElementById("msg").value.trim();
   const file = imageInput.files[0];
+
+  if (!text && !file) return;
 
   let imageURL = "";
 
@@ -199,13 +192,7 @@ window.sendMessage = async function () {
     createdAt: Date.now()
   });
 
-  msg.value = "";
+  document.getElementById("msg").value = "";
   imageInput.value = "";
   previewBox.classList.add("hidden");
-};
-
-// BACK
-window.goBack = function () {
-  document.getElementById("chatScreen").classList.add("hidden");
-  document.getElementById("chatList").classList.remove("hidden");
 };

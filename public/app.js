@@ -55,10 +55,23 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("loginScreen").classList.add("hidden");
     document.getElementById("chatList").classList.remove("hidden");
 
+    setupProfile(); // ✅ FIXED
     loadUsers();
     setInterval(updateOnlineStatus, 5000);
   }
 });
+
+// PROFILE MENU FIX
+function setupProfile() {
+  const avatar = document.getElementById("avatar");
+  const menu = document.getElementById("menu");
+
+  avatar.innerText = currentUser.charAt(0).toUpperCase();
+
+  avatar.onclick = () => {
+    menu.classList.toggle("hidden");
+  };
+}
 
 // ONLINE STATUS
 function updateOnlineStatus() {
@@ -99,7 +112,8 @@ window.openChat = function (otherUser) {
   document.getElementById("chatList").classList.add("hidden");
   document.getElementById("chatScreen").classList.remove("hidden");
 
-  document.getElementById("chatHeader").innerText = usersCache[otherUser]?.nickname;
+  document.getElementById("chatHeader").innerText =
+    usersCache[otherUser]?.nickname;
 
   loadMessages();
 };
@@ -123,26 +137,27 @@ imageInput.onchange = () => {
   previewBox.classList.remove("hidden");
 };
 
-// LOAD MESSAGES (FIXED UI)
+// LOAD MESSAGES (WITH SEEN FIX)
 function loadMessages() {
   const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
 
-  onSnapshot(q, (snap) => {
+  onSnapshot(q, async (snap) => {
     const box = document.getElementById("messages");
     box.innerHTML = "";
 
     let messages = [];
 
-    snap.forEach(d => messages.push(d.data()));
+    snap.forEach(docSnap => {
+      messages.push({ id: docSnap.id, ...docSnap.data() });
+    });
 
     messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
-    messages.forEach(m => {
+    for (const m of messages) {
       const isMe = m.sender === currentUser;
 
       const div = document.createElement("div");
-
-      div.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
+      div.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
 
       div.innerHTML = `
         <div class="px-3 py-2 rounded-xl max-w-[70%]
@@ -150,12 +165,24 @@ function loadMessages() {
 
           ${m.text || ""}
           ${m.image ? `<img src="${m.image}" class="mt-2 rounded max-w-full">` : ""}
-
         </div>
+
+        ${isMe ? `
+          <span class="text-xs text-gray-400 mt-1">
+            ${m.seen ? "Seen" : "Sent"}
+          </span>
+        ` : ""}
       `;
 
       box.appendChild(div);
-    });
+
+      // ✅ MARK AS SEEN
+      if (!isMe && !m.seen) {
+        await updateDoc(doc(db, "messages", m.id), {
+          seen: true
+        });
+      }
+    }
 
     box.scrollTop = box.scrollHeight;
   });
@@ -189,7 +216,8 @@ window.sendMessage = async function () {
     image: imageURL,
     sender: currentUser,
     chatId: currentChat,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    seen: false // ✅ IMPORTANT
   });
 
   document.getElementById("msg").value = "";

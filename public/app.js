@@ -55,30 +55,33 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("loginScreen").classList.add("hidden");
     document.getElementById("chatList").classList.remove("hidden");
 
-    setupProfile(); // ✅ FIXED
+    setupProfile();
     loadUsers();
-    setInterval(updateOnlineStatus, 5000);
   }
 });
 
-// PROFILE MENU FIX
+// PROFILE FIXED
 function setupProfile() {
   const avatar = document.getElementById("avatar");
   const menu = document.getElementById("menu");
 
   avatar.innerText = currentUser.charAt(0).toUpperCase();
 
-  avatar.onclick = () => {
+  avatar.onclick = (e) => {
+    e.stopPropagation();
     menu.classList.toggle("hidden");
   };
-}
 
-// ONLINE STATUS
-function updateOnlineStatus() {
-  updateDoc(doc(db, "users", currentUser), {
-    lastActive: Date.now()
+  document.addEventListener("click", () => {
+    menu.classList.add("hidden");
   });
 }
+
+// LOGOUT
+window.logout = async function () {
+  await signOut(auth);
+  location.reload();
+};
 
 // USERS
 async function loadUsers() {
@@ -96,8 +99,7 @@ async function loadUsers() {
     const div = document.createElement("div");
 
     div.className = "p-3 border-b cursor-pointer";
-
-    div.innerHTML = `<div>${user.nickname}</div>`;
+    div.innerText = user.nickname;
 
     div.onclick = () => openChat(user.email);
 
@@ -137,7 +139,7 @@ imageInput.onchange = () => {
   previewBox.classList.remove("hidden");
 };
 
-// LOAD MESSAGES (WITH SEEN FIX)
+// LOAD MESSAGES + SEEN
 function loadMessages() {
   const q = query(collection(db, "messages"), where("chatId", "==", currentChat));
 
@@ -169,14 +171,14 @@ function loadMessages() {
 
         ${isMe ? `
           <span class="text-xs text-gray-400 mt-1">
-            ${m.seen ? "Seen" : "Sent"}
+            ${m.seen ? "👁 Seen" : "✓ Sent"}
           </span>
         ` : ""}
       `;
 
       box.appendChild(div);
 
-      // ✅ MARK AS SEEN
+      // MARK AS SEEN
       if (!isMe && !m.seen) {
         await updateDoc(doc(db, "messages", m.id), {
           seen: true
@@ -217,7 +219,7 @@ window.sendMessage = async function () {
     sender: currentUser,
     chatId: currentChat,
     createdAt: Date.now(),
-    seen: false // ✅ IMPORTANT
+    seen: false
   });
 
   document.getElementById("msg").value = "";

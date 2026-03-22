@@ -7,11 +7,11 @@
 
 <body class="bg-gradient-to-br from-black via-gray-900 to-black text-white">
 
-<!-- LOGIN -->
+<!-- LOGIN SCREEN -->
 <div id="loginScreen" class="flex items-center justify-center h-screen">
   <div class="w-[90%] max-w-sm p-6 rounded-2xl bg-white/10 backdrop-blur-lg border border-white/10">
 
-    <h2 class="text-2xl text-center mb-6">Login</h2>
+    <h2 class="text-2xl text-center mb-6 font-semibold">Login</h2>
 
     <input id="email" placeholder="Email"
       class="w-full mb-4 px-4 py-3 rounded-xl bg-white/10 border border-white/10 outline-none">
@@ -20,7 +20,7 @@
       class="w-full mb-4 px-4 py-3 rounded-xl bg-white/10 border border-white/10 outline-none">
 
     <button onclick="login()"
-      class="w-full py-3 rounded-xl bg-blue-500 font-semibold">
+      class="w-full py-3 rounded-xl bg-blue-500 font-semibold active:scale-95 transition">
       Login
     </button>
 
@@ -30,15 +30,19 @@
 <!-- CHAT LIST -->
 <div id="chatList" class="hidden h-screen flex flex-col">
 
+  <!-- HEADER -->
   <div class="flex justify-between items-center p-4 border-b border-white/10">
+
     <h2 class="text-lg font-semibold">Chats</h2>
 
+    <!-- PROFILE -->
     <div class="relative">
       <div id="avatar"
-        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer">
+        class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer font-bold">
         U
       </div>
 
+      <!-- DROPDOWN -->
       <div id="menu"
         class="hidden absolute right-0 mt-2 w-44 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-2">
 
@@ -53,26 +57,60 @@
         </button>
       </div>
     </div>
+
   </div>
 
+  <!-- USERS -->
   <div id="usersList" class="flex-1 overflow-y-auto"></div>
+
 </div>
 
-<!-- CHAT -->
+<!-- CHAT SCREEN -->
 <div id="chatScreen" class="hidden h-screen flex flex-col">
 
+  <!-- HEADER -->
   <div class="p-4 border-b border-white/10 flex items-center gap-3">
-    <button onclick="goBack()" class="text-xl px-2">←</button>
+
+    <!-- BACK BUTTON -->
+    <button onclick="goBack()"
+      class="text-xl px-2 py-1 rounded hover:bg-white/10">
+      ←
+    </button>
+
     <div id="chatHeader" class="font-semibold"></div>
+
   </div>
 
+  <!-- MESSAGES -->
   <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
 
+  <!-- INPUT SECTION -->
   <div class="sticky bottom-0 px-3 py-3 bg-black/80 backdrop-blur-md">
+
     <div class="flex items-center gap-2 bg-white/10 rounded-full px-3 py-2">
-      <input id="msg" placeholder="Message..." class="flex-1 bg-transparent outline-none">
-      <button onclick="sendMessage()" class="bg-blue-500 px-3 py-2 rounded-full">➤</button>
+
+      <!-- TEXT INPUT -->
+      <input id="msg" placeholder="Message..."
+        class="flex-1 bg-transparent outline-none text-white">
+
+      <!-- IMAGE BUTTON -->
+      <label class="cursor-pointer flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/20 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+          <circle cx="12" cy="13" r="3" />
+        </svg>
+        <input type="file" id="imageInput" class="hidden">
+      </label>
+
+      <!-- SEND BUTTON -->
+      <button onclick="sendMessage()"
+        class="bg-blue-500 px-3 py-2 rounded-full active:scale-90 transition">
+        ➤
+      </button>
+
     </div>
+
   </div>
 
 </div>

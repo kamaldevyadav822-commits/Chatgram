@@ -28,7 +28,6 @@ let currentUser = "";
 let currentChat = "";
 let usersCache = {};
 
-// KEEP LOGIN
 setPersistence(auth, browserLocalPersistence);
 
 // CLOUDINARY
@@ -161,14 +160,14 @@ window.goBack = function () {
   document.getElementById("chatList").classList.remove("hidden");
 };
 
-// MESSAGES + SEEN SYSTEM
+// LOAD MESSAGES (TEXT + IMAGE)
 function loadMessages() {
   const q = query(
     collection(db, "messages"),
     where("chatId", "==", currentChat)
   );
 
-  onSnapshot(q, async (snap) => {
+  onSnapshot(q, (snap) => {
     const box = document.getElementById("messages");
     box.innerHTML = "";
 
@@ -178,10 +177,9 @@ function loadMessages() {
       messages.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // sort properly
     messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
-    for (const m of messages) {
+    messages.forEach(m => {
       const isMe = m.sender === currentUser;
 
       const div = document.createElement("div");
@@ -190,7 +188,10 @@ function loadMessages() {
       div.innerHTML = `
         <div class="px-3 py-2 rounded-xl max-w-[70%]
           ${isMe ? "bg-blue-500 text-white" : "bg-white/20 text-white"}">
-          ${m.text}
+
+          ${m.text ? `<div>${m.text}</div>` : ""}
+
+          ${m.image ? `<img src="${m.image}" class="mt-2 rounded-lg max-w-full">` : ""}
         </div>
 
         ${isMe ? `
@@ -201,33 +202,37 @@ function loadMessages() {
       `;
 
       box.appendChild(div);
-
-      // 🔥 MARK AS SEEN
-      if (!isMe && !m.seen) {
-        await updateDoc(doc(db, "messages", m.id), {
-          seen: true
-        });
-      }
-    }
+    });
 
     box.scrollTop = box.scrollHeight;
   });
 }
 
-// SEND MESSAGE
+// SEND MESSAGE (TEXT + IMAGE)
 window.sendMessage = async function () {
   const input = document.getElementById("msg");
-  const text = input.value.trim();
+  const imageInput = document.getElementById("imageInput");
 
-  if (!text) return;
+  const text = input.value.trim();
+  const file = imageInput.files[0];
+
+  if (!text && !file) return;
+
+  let imageURL = "";
+
+  if (file) {
+    imageURL = await uploadToCloudinary(file);
+  }
 
   await addDoc(collection(db, "messages"), {
-    text,
+    text: text || "",
+    image: imageURL || "",
     sender: currentUser,
     chatId: currentChat,
     createdAt: Date.now(),
-    seen: false // 🔥 NEW
+    seen: false
   });
 
   input.value = "";
+  imageInput.value = "";
 };
